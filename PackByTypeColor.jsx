@@ -2,10 +2,12 @@
  * Illustrator ExtendScript: Pack selected objects into 90x90cm boxes (bottom-strip small rows + dense upper packing)
  *
  * Menu:
+ *  Choose workflow: Pack for lasercut or Pack for print
  *  Choose source: current selection or folder import under E:\DON GO\DON GO 2604
  *  Folder import chooser lists direct child folders newest modified first, then their subfolders
  *  Option 1: Pack ONLY (do NOT draw box + label)
  *  Option 2: Pack + Draw box + label
+ *  Pack for print + folder import selects imported items and stops so you can choose what to pack
  *
  * Settings:
  *  - BOX = 90cm
@@ -20,15 +22,43 @@
  *  - Small items are packed into bottom rows first; larger items are then packed above them
  *
  * Notes:
- *  - Bounds for sizing AND moving: union(visibleBounds, geometricBounds) for consistency (reduces random extra gaps)
+ *  - Bounds for sizing AND moving: clipped groups use the clipping mask path geometricBounds; other items use union(visibleBounds, geometricBounds)
  */
 
 (function () {
   if (app.documents.length === 0) { alert("Open a target document first."); return; }
   var doc = app.activeDocument;
-  var RUN_MODE_SELECTION = "selection";
-  var RUN_MODE_FOLDER = "folder";
-  var runMode = null;
+  var WORKFLOW_LASERCUT = "lasercut";
+  var WORKFLOW_PRINT = "print";
+  var SOURCE_SELECTION = "selection";
+  var SOURCE_FOLDER = "folder";
+  var workflowMode = null;
+  var sourceMode = null;
+
+  // ----------------------------
+  // Workflow mode (ScriptUI)
+  // ----------------------------
+  try {
+    var workflowWindow = new Window("dialog", "Packing Workflow");
+    workflowWindow.alignChildren = "fill";
+
+    var workflowLasercut = workflowWindow.add("button", undefined, "Pack for lasercut");
+    var workflowPrint = workflowWindow.add("button", undefined, "Pack for print");
+    var workflowCancel = workflowWindow.add("button", undefined, "Cancel");
+
+    workflowLasercut.onClick = function(){ workflowMode = WORKFLOW_LASERCUT; workflowWindow.close(1); };
+    workflowPrint.onClick = function(){ workflowMode = WORKFLOW_PRINT; workflowWindow.close(1); };
+    workflowCancel.onClick = function(){ workflowWindow.close(0); };
+
+    if (workflowWindow.show() !== 1 || workflowMode === null) return;
+  } catch (eWorkflowUI) {
+    var workflowFallbackChoice = prompt("Packing Workflow:\n1 = Pack for lasercut\n2 = Pack for print\n\nEnter 1 or 2.", "");
+    if (workflowFallbackChoice === null) return;
+    workflowFallbackChoice = workflowFallbackChoice.replace(/^\s+|\s+$/g, "");
+    if (workflowFallbackChoice === "1") workflowMode = WORKFLOW_LASERCUT;
+    else if (workflowFallbackChoice === "2") workflowMode = WORKFLOW_PRINT;
+    else return;
+  }
 
   // ----------------------------
   // Source mode (ScriptUI)
@@ -41,46 +71,49 @@
     var sourceFolder = sourceWindow.add("button", undefined, "Pack from folder");
     var sourceCancel = sourceWindow.add("button", undefined, "Cancel");
 
-    sourceSelection.onClick = function(){ runMode = RUN_MODE_SELECTION; sourceWindow.close(1); };
-    sourceFolder.onClick = function(){ runMode = RUN_MODE_FOLDER; sourceWindow.close(1); };
+    sourceSelection.onClick = function(){ sourceMode = SOURCE_SELECTION; sourceWindow.close(1); };
+    sourceFolder.onClick = function(){ sourceMode = SOURCE_FOLDER; sourceWindow.close(1); };
     sourceCancel.onClick = function(){ sourceWindow.close(0); };
 
-    if (sourceWindow.show() !== 1 || runMode === null) return;
+    if (sourceWindow.show() !== 1 || sourceMode === null) return;
   } catch (eSourceUI) {
     var sourceFallbackChoice = prompt("Packing Source:\n1 = Pack current selection\n2 = Pack from folder\n\nEnter 1 or 2.", "");
     if (sourceFallbackChoice === null) return;
     sourceFallbackChoice = sourceFallbackChoice.replace(/^\s+|\s+$/g, "");
-    if (sourceFallbackChoice === "1") runMode = RUN_MODE_SELECTION;
-    else if (sourceFallbackChoice === "2") runMode = RUN_MODE_FOLDER;
+    if (sourceFallbackChoice === "1") sourceMode = SOURCE_SELECTION;
+    else if (sourceFallbackChoice === "2") sourceMode = SOURCE_FOLDER;
     else return;
   }
 
-  // ----------------------------
-  // Draw mode (ScriptUI)
-  // ----------------------------
+  function chooseDrawMode() {
+    var drawChoice = null;
+
+    try {
+      var w = new Window("dialog", "Packing Options");
+      w.alignChildren = "fill";
+
+      var b1 = w.add("button", undefined, "Option 1: Pack only");
+      var b2 = w.add("button", undefined, "Option 2: Pack + draw box + label");
+      var cancel = w.add("button", undefined, "Cancel");
+
+      b1.onClick = function(){ drawChoice = false; w.close(1); };
+      b2.onClick = function(){ drawChoice = true;  w.close(1); };
+      cancel.onClick = function(){ w.close(0); };
+
+      if (w.show() !== 1 || drawChoice === null) return null;
+    } catch (eUI) {
+      var fallbackChoice = prompt("Packing Options:\n1 = Pack only\n2 = Pack + draw box + label\n\nEnter 1 or 2.", "");
+      if (fallbackChoice === null) return null;
+      fallbackChoice = fallbackChoice.replace(/^\s+|\s+$/g, "");
+      if (fallbackChoice === "1") drawChoice = false;
+      else if (fallbackChoice === "2") drawChoice = true;
+      else return null;
+    }
+
+    return drawChoice;
+  }
+
   var doDraw = null;
-  try {
-    var w = new Window("dialog", "Packing Options");
-    w.alignChildren = "fill";
-
-    var b1 = w.add("button", undefined, "Option 1: Pack only");
-    var b2 = w.add("button", undefined, "Option 2: Pack + draw box + label");
-    var cancel = w.add("button", undefined, "Cancel");
-
-    b1.onClick = function(){ doDraw = false; w.close(1); };
-    b2.onClick = function(){ doDraw = true;  w.close(1); };
-    cancel.onClick = function(){ w.close(0); };
-
-    if (w.show() !== 1 || doDraw === null) return;
-  } catch (eUI) {
-    // If ScriptUI fails, fallback to a simple 3-state text prompt
-    var fallbackChoice = prompt("Packing Options:\n1 = Pack only\n2 = Pack + draw box + label\n\nEnter 1 or 2.", "");
-    if (fallbackChoice === null) return;
-    fallbackChoice = fallbackChoice.replace(/^\s+|\s+$/g, "");
-    if (fallbackChoice === "1") doDraw = false;
-    else if (fallbackChoice === "2") doDraw = true;
-    else return;
-  }
 
   // ----------------------------
   // Constants (cm)
@@ -96,7 +129,7 @@
   var BOX_COL_GAP = 10;
   var BOX_ROW_GAP = 30;
   var LABEL_OFFSET = 10;
-  var LABEL_FONT_NAME = "Lora";
+  var LABEL_FONT_NAME = "Fraunces";
   var LABEL_FONT_SIZE = 220;
   var MAIN_FOLDER_PATH = "E:/DON GO/DON GO 2604";
   var SMALL_BUCKET_MAX_SIDE_CM = 18;
@@ -104,12 +137,12 @@
   var TYPE_5MM = "5mm";
   var TYPE_3MM = "3mm";
   var TYPE_5MM_STROKE_HEX = "#0000FF";
-  var MAX_PER_ROW = 6;
+  var MAX_PER_ROW = 5;
   var SMALL_BUCKET_MAX_CELLS = Math.ceil(SMALL_BUCKET_MAX_SIDE_CM / CELL);
 
   var TYPE_SORT_ORDER = {};
-  TYPE_SORT_ORDER[TYPE_5MM] = 0;
-  TYPE_SORT_ORDER[TYPE_3MM] = 1;
+  TYPE_SORT_ORDER[TYPE_3MM] = 0;
+  TYPE_SORT_ORDER[TYPE_5MM] = 1;
 
   var COLOR_PALETTE = [
     { label: "Mint", name: "2551 - Mint", hex: "#ABDDBA" },
@@ -140,7 +173,8 @@
     { label: "Koson", name: "Ko son", hex: "#E1D6C6" },
     { label: "Vecny", name: "Vecny - Honey Maple", hex: "#EACCA7" },
     { label: "Golden Oak", name: "15 - Golden Oak", hex: "#CE925C" },
-    { label: "Candlelite", name: "07 - Candlelite", hex: "#B1592C" }
+    { label: "Candlelite", name: "07 - Candlelite", hex: "#B1592C" },
+    { label: "Mica", name: "Mica", hex: "#e2e2e2" }
   ];
 
   var USE_CM = BOX - 2 * BOX_PAD; // 88
@@ -701,16 +735,16 @@
   }
 
   function compareCollectedItems(a, b) {
+    if (a.groupTypeSortIndex !== b.groupTypeSortIndex) {
+      return a.groupTypeSortIndex - b.groupTypeSortIndex;
+    }
+
     if (a.groupColorSortIndex !== b.groupColorSortIndex) {
       return a.groupColorSortIndex - b.groupColorSortIndex;
     }
 
     var textCompare = compareText(a.groupColorSortKey, b.groupColorSortKey);
     if (textCompare !== 0) return textCompare;
-
-    if (a.groupTypeSortIndex !== b.groupTypeSortIndex) {
-      return a.groupTypeSortIndex - b.groupTypeSortIndex;
-    }
 
     textCompare = compareText(a.groupKey, b.groupKey);
     if (textCompare !== 0) return textCompare;
@@ -1052,11 +1086,48 @@
     ];
   }
 
+  function isCompoundClippingItem(item) {
+    if (getItemTypename(item) !== "CompoundPathItem") return false;
+
+    try {
+      for (var i = 0; i < item.pathItems.length; i++) {
+        if (item.pathItems[i].clipping === true) return true;
+      }
+    } catch (eCompoundClip) {}
+
+    return false;
+  }
+
+  function getClippingMaskBounds(item) {
+    var isClipped = false;
+    try { isClipped = item.clipped === true; } catch (eClipped) {}
+    if (!isClipped) return null;
+
+    var children = null;
+    try { children = item.pageItems; } catch (eChildren) {}
+    if (!children || !children.length) return null;
+
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      if (!isClippingItem(child) && !isCompoundClippingItem(child)) continue;
+
+      try { return child.geometricBounds; } catch (eMaskBounds) {}
+    }
+
+    return null;
+  }
+
+  function getPackingBounds(item) {
+    var maskBounds = getClippingMaskBounds(item);
+    if (maskBounds) return maskBounds;
+    return getUnionBounds(item);
+  }
+
   function boundsWidthPt(b) { return b[2] - b[0]; }
   function boundsHeightPt(b) { return b[1] - b[3]; }
 
   // Move bounds MUST match sizing bounds for consistent spacing
-  function getMoveBounds(item) { return getUnionBounds(item); }
+  function getMoveBounds(item) { return getPackingBounds(item); }
 
   // ----------------------------
   // Free-rectangle packer helpers
@@ -1214,6 +1285,10 @@
   function createBoxAt(boxLeftPt, boxTopPt) {
     var rect = doc.pathItems.rectangle(boxTopPt, boxLeftPt, cmToPt(BOX), cmToPt(BOX));
     rect.stroked = true;
+    try {
+      var boxStrokeColor = makeRgbColorFromHex("#000000");
+      if (boxStrokeColor) rect.strokeColor = boxStrokeColor;
+    } catch (eBoxStroke) {}
     rect.filled = false;
     return rect;
   }
@@ -1321,7 +1396,9 @@
     return getUnionBounds(item) !== null;
   }
 
-  var sourceModeLabel = runMode === RUN_MODE_FOLDER ? "Folder import" : "Current selection";
+  var workflowModeLabel = workflowMode === WORKFLOW_PRINT ? "Pack for print" : "Pack for lasercut";
+  var sourceModeLabel = sourceMode === SOURCE_FOLDER ? "Folder import" : "Current selection";
+  var keepFillAfterPacking = workflowMode === WORKFLOW_PRINT;
   var processedFileCount = 0;
   var skippedFileCount = 0;
   var importedCount = 0;
@@ -1329,7 +1406,7 @@
   var sourceFolderPath = "";
   var inputItems = null;
 
-  if (runMode === RUN_MODE_SELECTION) {
+  if (sourceMode === SOURCE_SELECTION) {
     inputItems = doc.selection;
     if (!inputItems || inputItems.length === 0) {
       alert("Select the objects (groups are OK) you want to pack, then run again.");
@@ -1358,16 +1435,38 @@
       );
       return;
     }
+
+    if (workflowMode === WORKFLOW_PRINT) {
+      try { doc.selection = null; } catch (eClearSelection) {}
+
+      for (var importedIndex = 0; importedIndex < importResult.items.length; importedIndex++) {
+        try { importResult.items[importedIndex].selected = true; } catch (eSelectImported) {}
+      }
+
+      alert(
+        "Imported items are selected.\n\n" +
+        "Choose what you want to pack, then rerun:\n" +
+        "Pack for print -> Pack current selection\n\n" +
+        "Folder: " + sourceFolderPath + "\n" +
+        "Imported objects: " + importedCount + "\n" +
+        "Files processed: " + processedFileCount + "\n" +
+        "Files skipped: " + skippedFileCount
+      );
+      return;
+    }
   }
+
+  doDraw = chooseDrawMode();
+  if (doDraw === null) return;
 
   var items = [];
   for (var i = 0; i < inputItems.length; i++) {
     var it = inputItems[i];
     if (!isPackable(it)) continue;
 
-    var ub = getUnionBounds(it);
-    var wCm = ptToCm(boundsWidthPt(ub));
-    var hCm = ptToCm(boundsHeightPt(ub));
+    var pb = getPackingBounds(it);
+    var wCm = ptToCm(boundsWidthPt(pb));
+    var hCm = ptToCm(boundsHeightPt(pb));
 
     var wPad = wCm + 2 * OBJ_PAD;
     var hPad = hCm + 2 * OBJ_PAD;
@@ -1397,7 +1496,7 @@
   }
 
   if (items.length === 0) {
-    if (runMode === RUN_MODE_FOLDER) {
+    if (sourceMode === SOURCE_FOLDER) {
       alert(
         "No packable imported items found.\n\n" +
         "Folder: " + sourceFolderPath + "\n" +
@@ -1526,7 +1625,9 @@
     var targetY = usable.bottom + cmToPt(cellY * CELL + OBJ_PAD);
 
     if (!moveItemBottomLeftTo(obj.item, targetX, targetY)) return false;
-    try { removeFillFromPackedItem(obj.item); } catch (eRemoveFill) {}
+    if (!keepFillAfterPacking) {
+      try { removeFillFromPackedItem(obj.item); } catch (eRemoveFill) {}
+    }
 
     if (!currentBoxHasPlacement) {
       currentBoxHasPlacement = true;
@@ -1580,8 +1681,9 @@
   // ----------------------------
   var msg = "";
   msg += "Packing finished.\n\n";
+  msg += "Workflow: " + workflowModeLabel + "\n";
   msg += "Source: " + sourceModeLabel + "\n";
-  if (runMode === RUN_MODE_FOLDER) {
+  if (sourceMode === SOURCE_FOLDER) {
     msg += "Folder: " + sourceFolderPath + "\n";
     msg += ".ai files found: " + aiFileCount + "\n";
     msg += "Files processed: " + processedFileCount + "\n";
