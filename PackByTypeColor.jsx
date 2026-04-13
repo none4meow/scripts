@@ -26,7 +26,10 @@
  */
 
 (function () {
-  if (app.documents.length === 0) { alert("Open a target document first."); return; }
+  if (app.documents.length === 0) {
+    alert("Open a target document first.");
+    return;
+  }
   var doc = app.activeDocument;
   var WORKFLOW_LASERCUT = "lasercut";
   var WORKFLOW_PRINT = "print";
@@ -42,17 +45,36 @@
     var workflowWindow = new Window("dialog", "Packing Workflow");
     workflowWindow.alignChildren = "fill";
 
-    var workflowLasercut = workflowWindow.add("button", undefined, "Pack for lasercut");
-    var workflowPrint = workflowWindow.add("button", undefined, "Pack for print");
+    var workflowLasercut = workflowWindow.add(
+      "button",
+      undefined,
+      "Pack for lasercut",
+    );
+    var workflowPrint = workflowWindow.add(
+      "button",
+      undefined,
+      "Pack for print",
+    );
     var workflowCancel = workflowWindow.add("button", undefined, "Cancel");
 
-    workflowLasercut.onClick = function(){ workflowMode = WORKFLOW_LASERCUT; workflowWindow.close(1); };
-    workflowPrint.onClick = function(){ workflowMode = WORKFLOW_PRINT; workflowWindow.close(1); };
-    workflowCancel.onClick = function(){ workflowWindow.close(0); };
+    workflowLasercut.onClick = function () {
+      workflowMode = WORKFLOW_LASERCUT;
+      workflowWindow.close(1);
+    };
+    workflowPrint.onClick = function () {
+      workflowMode = WORKFLOW_PRINT;
+      workflowWindow.close(1);
+    };
+    workflowCancel.onClick = function () {
+      workflowWindow.close(0);
+    };
 
     if (workflowWindow.show() !== 1 || workflowMode === null) return;
   } catch (eWorkflowUI) {
-    var workflowFallbackChoice = prompt("Packing Workflow:\n1 = Pack for lasercut\n2 = Pack for print\n\nEnter 1 or 2.", "");
+    var workflowFallbackChoice = prompt(
+      "Packing Workflow:\n1 = Pack for lasercut\n2 = Pack for print\n\nEnter 1 or 2.",
+      "",
+    );
     if (workflowFallbackChoice === null) return;
     workflowFallbackChoice = workflowFallbackChoice.replace(/^\s+|\s+$/g, "");
     if (workflowFallbackChoice === "1") workflowMode = WORKFLOW_LASERCUT;
@@ -67,17 +89,36 @@
     var sourceWindow = new Window("dialog", "Packing Source");
     sourceWindow.alignChildren = "fill";
 
-    var sourceSelection = sourceWindow.add("button", undefined, "Pack current selection");
-    var sourceFolder = sourceWindow.add("button", undefined, "Pack from folder");
+    var sourceSelection = sourceWindow.add(
+      "button",
+      undefined,
+      "Pack current selection",
+    );
+    var sourceFolder = sourceWindow.add(
+      "button",
+      undefined,
+      "Pack from folder",
+    );
     var sourceCancel = sourceWindow.add("button", undefined, "Cancel");
 
-    sourceSelection.onClick = function(){ sourceMode = SOURCE_SELECTION; sourceWindow.close(1); };
-    sourceFolder.onClick = function(){ sourceMode = SOURCE_FOLDER; sourceWindow.close(1); };
-    sourceCancel.onClick = function(){ sourceWindow.close(0); };
+    sourceSelection.onClick = function () {
+      sourceMode = SOURCE_SELECTION;
+      sourceWindow.close(1);
+    };
+    sourceFolder.onClick = function () {
+      sourceMode = SOURCE_FOLDER;
+      sourceWindow.close(1);
+    };
+    sourceCancel.onClick = function () {
+      sourceWindow.close(0);
+    };
 
     if (sourceWindow.show() !== 1 || sourceMode === null) return;
   } catch (eSourceUI) {
-    var sourceFallbackChoice = prompt("Packing Source:\n1 = Pack current selection\n2 = Pack from folder\n\nEnter 1 or 2.", "");
+    var sourceFallbackChoice = prompt(
+      "Packing Source:\n1 = Pack current selection\n2 = Pack from folder\n\nEnter 1 or 2.",
+      "",
+    );
     if (sourceFallbackChoice === null) return;
     sourceFallbackChoice = sourceFallbackChoice.replace(/^\s+|\s+$/g, "");
     if (sourceFallbackChoice === "1") sourceMode = SOURCE_SELECTION;
@@ -96,13 +137,24 @@
       var b2 = w.add("button", undefined, "Option 2: Pack + draw box + label");
       var cancel = w.add("button", undefined, "Cancel");
 
-      b1.onClick = function(){ drawChoice = false; w.close(1); };
-      b2.onClick = function(){ drawChoice = true;  w.close(1); };
-      cancel.onClick = function(){ w.close(0); };
+      b1.onClick = function () {
+        drawChoice = false;
+        w.close(1);
+      };
+      b2.onClick = function () {
+        drawChoice = true;
+        w.close(1);
+      };
+      cancel.onClick = function () {
+        w.close(0);
+      };
 
       if (w.show() !== 1 || drawChoice === null) return null;
     } catch (eUI) {
-      var fallbackChoice = prompt("Packing Options:\n1 = Pack only\n2 = Pack + draw box + label\n\nEnter 1 or 2.", "");
+      var fallbackChoice = prompt(
+        "Packing Options:\n1 = Pack only\n2 = Pack + draw box + label\n\nEnter 1 or 2.",
+        "",
+      );
       if (fallbackChoice === null) return null;
       fallbackChoice = fallbackChoice.replace(/^\s+|\s+$/g, "");
       if (fallbackChoice === "1") drawChoice = false;
@@ -133,10 +185,11 @@
   var LABEL_FONT_SIZE = 220;
   var MAIN_FOLDER_PATH = "E:/DON GO/DON GO 2604";
   var SMALL_BUCKET_MAX_SIDE_CM = 18;
-  var COLOR_TOLERANCE = 30;
+  var COLOR_TOLERANCE = 12;
   var TYPE_5MM = "5mm";
   var TYPE_3MM = "3mm";
   var TYPE_5MM_STROKE_HEX = "#0000FF";
+  var UNGROUPED_3MM_STROKE_OFF_HEX = "#FF0000";
   var MAX_PER_ROW = 5;
   var SMALL_BUCKET_MAX_CELLS = Math.ceil(SMALL_BUCKET_MAX_SIDE_CM / CELL);
 
@@ -148,7 +201,7 @@
     { label: "Mint", name: "2551 - Mint", hex: "#ABDDBA" },
     { label: "Light Sage", name: "B17 - Light Sage", hex: "#D4E5CA" },
     { label: "Lemon Green", name: "B22 - Lemon Green", hex: "#DFDF8E" },
-    { label: "Olive Green", name: "B38 - Olive Green", hex: "#A5AF5B" },
+    { label: "Olive Green", name: "B38 - Olive Green", hex: "#959F66" },
     { label: "White", name: "Trang - White", hex: "#FFFFFF" },
     { label: "Baby Blue", name: "B07 - Baby Blue", hex: "#A4EAE4" },
     { label: "Teal", name: "B14 - Teal", hex: "#2CB1AE" },
@@ -164,7 +217,7 @@
     { label: "Silver", name: "Nhu bac - Silver", hex: "#E2DED9" },
     { label: "Grey", name: "B11 - Grey", hex: "#C6C0BD" },
     { label: "Black", name: "Den - Black", hex: "#000000" },
-    { label: "Brown", name: "10 - Brown", hex: "#5A4029" },
+    { label: "Brown", name: "Nau 10 - Brown", hex: "#5A4029" },
     { label: "Do man", name: "Do man - B61", hex: "#A0180A" },
     { label: "Classic Gray", name: "37 - Classic Gray", hex: "#BDBABC" },
     { label: "Ebony", name: "Ebony", hex: "#535458" },
@@ -174,7 +227,8 @@
     { label: "Vecny", name: "Vecny - Honey Maple", hex: "#EACCA7" },
     { label: "Golden Oak", name: "15 - Golden Oak", hex: "#CE925C" },
     { label: "Candlelite", name: "07 - Candlelite", hex: "#B1592C" },
-    { label: "Mica", name: "Mica", hex: "#e2e2e2" }
+    { label: "Nau nhat", name: "Nau nhat", hex: "#896F56" },
+    { label: "Mica", name: "Mica", hex: "#e2e2e2" },
   ];
 
   var USE_CM = BOX - 2 * BOX_PAD; // 88
@@ -186,8 +240,12 @@
   // Unit conversion
   // ----------------------------
   var PT_PER_CM = 72 / 2.54;
-  function cmToPt(cm) { return cm * PT_PER_CM; }
-  function ptToCm(pt) { return pt / PT_PER_CM; }
+  function cmToPt(cm) {
+    return cm * PT_PER_CM;
+  }
+  function ptToCm(pt) {
+    return pt / PT_PER_CM;
+  }
 
   // ----------------------------
   // Color helpers
@@ -207,15 +265,21 @@
   function normalizeHex(hex) {
     if (!hex) return null;
 
-    var text = String(hex).replace(/^\s+|\s+$/g, "").toUpperCase();
+    var text = String(hex)
+      .replace(/^\s+|\s+$/g, "")
+      .toUpperCase();
     if (!text) return null;
     if (text.charAt(0) !== "#") text = "#" + text;
 
     if (text.length === 4) {
-      text = "#" +
-        text.charAt(1) + text.charAt(1) +
-        text.charAt(2) + text.charAt(2) +
-        text.charAt(3) + text.charAt(3);
+      text =
+        "#" +
+        text.charAt(1) +
+        text.charAt(1) +
+        text.charAt(2) +
+        text.charAt(2) +
+        text.charAt(3) +
+        text.charAt(3);
     }
 
     if (!/^#[0-9A-F]{6}$/.test(text)) return null;
@@ -229,7 +293,7 @@
     return {
       r: parseInt(normalized.substr(1, 2), 16),
       g: parseInt(normalized.substr(3, 2), 16),
-      b: parseInt(normalized.substr(5, 2), 16)
+      b: parseInt(normalized.substr(5, 2), 16),
     };
   }
 
@@ -277,7 +341,9 @@
     if (!color) return null;
 
     var typename = "";
-    try { typename = color.typename; } catch (eType) {}
+    try {
+      typename = color.typename;
+    } catch (eType) {}
     if (!typename) return null;
 
     if (typename === "NoColor") return null;
@@ -297,7 +363,9 @@
     }
 
     if (typename === "SpotColor") {
-      try { return colorToHex(color.spot.color); } catch (eSpot) {}
+      try {
+        return colorToHex(color.spot.color);
+      } catch (eSpot) {}
       return null;
     }
 
@@ -305,7 +373,9 @@
   }
 
   function getItemTypename(item) {
-    try { return item.typename; } catch (eType) {}
+    try {
+      return item.typename;
+    } catch (eType) {}
     return "";
   }
 
@@ -338,7 +408,9 @@
     var typename = getItemTypename(source);
 
     if (typename === "TextFrame") {
-      try { return colorToHex(source.textRange.characterAttributes.fillColor); } catch (eTextFill) {}
+      try {
+        return colorToHex(source.textRange.characterAttributes.fillColor);
+      } catch (eTextFill) {}
       return null;
     }
 
@@ -357,7 +429,9 @@
       if (source.filled === false) return null;
     } catch (eFilled) {}
 
-    try { return colorToHex(source.fillColor); } catch (eFill) {}
+    try {
+      return colorToHex(source.fillColor);
+    } catch (eFill) {}
     return null;
   }
 
@@ -366,7 +440,9 @@
     var typename = getItemTypename(source);
 
     if (typename === "TextFrame") {
-      try { return colorToHex(source.textRange.characterAttributes.strokeColor); } catch (eTextStroke) {}
+      try {
+        return colorToHex(source.textRange.characterAttributes.strokeColor);
+      } catch (eTextStroke) {}
       return null;
     }
 
@@ -385,20 +461,24 @@
       if (source.stroked === false) return null;
     } catch (eStroked) {}
 
-    try { return colorToHex(source.strokeColor); } catch (eStroke) {}
+    try {
+      return colorToHex(source.strokeColor);
+    } catch (eStroke) {}
     return null;
   }
 
   function isDrawableLeaf(item) {
     var typename = getItemTypename(item);
-    return typename === "PathItem" ||
+    return (
+      typename === "PathItem" ||
       typename === "CompoundPathItem" ||
       typename === "TextFrame" ||
       typename === "RasterItem" ||
       typename === "PlacedItem" ||
       typename === "SymbolItem" ||
       typename === "MeshItem" ||
-      typename === "PluginItem";
+      typename === "PluginItem"
+    );
   }
 
   function hasUsableRepresentativeColor(item) {
@@ -406,12 +486,16 @@
   }
 
   function isClippingItem(item) {
-    try { return item.clipping === true; } catch (eClipping) {}
+    try {
+      return item.clipping === true;
+    } catch (eClipping) {}
     return false;
   }
 
   function getItemZOrderPosition(item) {
-    try { return item.zOrderPosition; } catch (eZOrder) {}
+    try {
+      return item.zOrderPosition;
+    } catch (eZOrder) {}
     return 0;
   }
 
@@ -464,7 +548,10 @@
     if (isContainerForRepresentativeLookup(item)) {
       var children = getRenderedChildrenInDirectOrder(item);
       for (var i = 0; i < children.length; i++) {
-        var childInfo = getFirstRenderedRepresentativeInfo(children[i], requireColor);
+        var childInfo = getFirstRenderedRepresentativeInfo(
+          children[i],
+          requireColor,
+        );
         if (childInfo) return childInfo;
       }
       return null;
@@ -479,7 +566,7 @@
     return {
       item: item,
       fillHex: fillHex,
-      strokeHex: strokeHex
+      strokeHex: strokeHex,
     };
   }
 
@@ -491,7 +578,9 @@
     } catch (eHidden) {}
 
     var children = null;
-    try { children = item.pageItems; } catch (eChildren) {}
+    try {
+      children = item.pageItems;
+    } catch (eChildren) {}
     if (children && children.length) {
       for (var i = 0; i < children.length; i++) {
         var childPath = zPath.slice(0);
@@ -505,7 +594,7 @@
       out.push({
         item: item,
         zPath: zPath,
-        hasColor: hasUsableRepresentativeColor(item)
+        hasColor: hasUsableRepresentativeColor(item),
       });
     }
   }
@@ -521,7 +610,7 @@
       return {
         item: candidateItem,
         fillHex: fillHex,
-        strokeHex: getItemStrokeHex(candidateItem)
+        strokeHex: getItemStrokeHex(candidateItem),
       };
     }
 
@@ -530,7 +619,7 @@
       return {
         item: candidateItem,
         fillHex: null,
-        strokeHex: strokeHex
+        strokeHex: strokeHex,
       };
     }
 
@@ -542,7 +631,8 @@
     var fallbackCandidates = [];
 
     for (var i = 0; i < candidates.length; i++) {
-      if (isPathLikeCandidate(candidates[i].item)) pathCandidates.push(candidates[i]);
+      if (isPathLikeCandidate(candidates[i].item))
+        pathCandidates.push(candidates[i]);
       else fallbackCandidates.push(candidates[i]);
     }
 
@@ -551,15 +641,21 @@
       if (pathInfo) return pathInfo;
     }
 
-    for (var fallbackIndex = 0; fallbackIndex < fallbackCandidates.length; fallbackIndex++) {
-      var fallbackInfo = getCandidateColorInfo(fallbackCandidates[fallbackIndex].item);
+    for (
+      var fallbackIndex = 0;
+      fallbackIndex < fallbackCandidates.length;
+      fallbackIndex++
+    ) {
+      var fallbackInfo = getCandidateColorInfo(
+        fallbackCandidates[fallbackIndex].item,
+      );
       if (fallbackInfo) return fallbackInfo;
     }
 
     return {
       item: candidates[0].item,
       fillHex: null,
-      strokeHex: null
+      strokeHex: null,
     };
   }
 
@@ -575,7 +671,9 @@
   function clearCompoundPathFill(item, noColor) {
     if (!item) return;
 
-    try { item.filled = false; } catch (eCompoundFilledFalse) {}
+    try {
+      item.filled = false;
+    } catch (eCompoundFilledFalse) {}
     try {
       if (noColor) item.fillColor = noColor;
     } catch (eCompoundNoFillColor) {}
@@ -589,13 +687,83 @@
 
     for (var childIndex = 0; childIndex < childPaths.length; childIndex++) {
       var child = childPaths[childIndex];
-      if (getItemFillHex(child) === null || getItemStrokeHex(child) === null) continue;
+      if (getItemFillHex(child) === null || getItemStrokeHex(child) === null)
+        continue;
 
-      try { child.filled = false; } catch (eChildFilledFalse) {}
+      try {
+        child.filled = false;
+      } catch (eChildFilledFalse) {}
       try {
         if (noColor) child.fillColor = noColor;
       } catch (eChildNoFillColor) {}
     }
+  }
+
+  function isTopLevelUngroupedItem(item) {
+    if (!item) return false;
+    return getItemTypename(item.parent) === "Layer";
+  }
+
+  function isTopLevelStrokeOffEligibleItem(item) {
+    var typename = getItemTypename(item);
+    return typename === "PathItem" || typename === "CompoundPathItem";
+  }
+
+  function clearCompoundPathStroke(item, noColor) {
+    if (!item) return;
+
+    try {
+      item.stroked = false;
+    } catch (eCompoundStrokedFalse) {}
+    try {
+      if (noColor) item.strokeColor = noColor;
+    } catch (eCompoundNoStrokeColor) {}
+
+    var childPaths = [];
+    try {
+      for (var i = 0; i < item.pathItems.length; i++) {
+        childPaths.push(item.pathItems[i]);
+      }
+    } catch (eCompoundStrokeChildren) {}
+
+    for (var childIndex = 0; childIndex < childPaths.length; childIndex++) {
+      var child = childPaths[childIndex];
+      try {
+        child.stroked = false;
+      } catch (eChildStrokedFalse) {}
+      try {
+        if (noColor) child.strokeColor = noColor;
+      } catch (eChildNoStrokeColor) {}
+    }
+  }
+
+  function isRedStrokeOffTarget(item, groupType) {
+    if (!item) return;
+    if (groupType !== TYPE_3MM) return;
+    if (!isTopLevelUngroupedItem(item)) return;
+    if (!isTopLevelStrokeOffEligibleItem(item)) return;
+
+    var strokeHex = normalizeHex(getItemStrokeHex(item));
+    return strokeHex === UNGROUPED_3MM_STROKE_OFF_HEX;
+  }
+
+  function turnOffRedStrokeForUngrouped3mmItem(item, groupType) {
+    if (!isRedStrokeOffTarget(item, groupType)) return;
+
+    var typename = getItemTypename(item);
+    var noColor = makeNoColor();
+
+    if (typename === "CompoundPathItem") {
+      clearCompoundPathStroke(item, noColor);
+      return;
+    }
+
+    try {
+      item.stroked = false;
+    } catch (eStrokedFalse) {}
+    try {
+      if (noColor) item.strokeColor = noColor;
+    } catch (eNoStrokeColor) {}
   }
 
   function turnOffFillIfFilledAndStroked(item) {
@@ -620,7 +788,9 @@
       return;
     }
 
-    try { item.filled = false; } catch (eFilledFalse) {}
+    try {
+      item.filled = false;
+    } catch (eFilledFalse) {}
     try {
       if (noColor) item.fillColor = noColor;
     } catch (eNoFillColor) {}
@@ -652,9 +822,11 @@
   }
 
   function colorsMatchWithinTolerance(rgbA, rgbB, tolerance) {
-    return Math.abs(rgbA.r - rgbB.r) <= tolerance &&
+    return (
+      Math.abs(rgbA.r - rgbB.r) <= tolerance &&
       Math.abs(rgbA.g - rgbB.g) <= tolerance &&
-      Math.abs(rgbA.b - rgbB.b) <= tolerance;
+      Math.abs(rgbA.b - rgbB.b) <= tolerance
+    );
   }
 
   function matchPaletteColor(rawHex) {
@@ -665,7 +837,13 @@
     var bestDistance = Number.MAX_VALUE;
 
     for (var i = 0; i < COLOR_PALETTE.length; i++) {
-      if (colorsMatchWithinTolerance(rawRgb, COLOR_PALETTE[i].rgb, COLOR_TOLERANCE)) {
+      if (
+        colorsMatchWithinTolerance(
+          rawRgb,
+          COLOR_PALETTE[i].rgb,
+          COLOR_TOLERANCE,
+        )
+      ) {
         var paletteRgb = COLOR_PALETTE[i].rgb;
         var dr = rawRgb.r - paletteRgb.r;
         var dg = rawRgb.g - paletteRgb.g;
@@ -683,7 +861,9 @@
   }
 
   function getTypeNameForStrokeHex(strokeHex) {
-    return normalizeHex(strokeHex) === TYPE_5MM_STROKE_HEX ? TYPE_5MM : TYPE_3MM;
+    return normalizeHex(strokeHex) === TYPE_5MM_STROKE_HEX
+      ? TYPE_5MM
+      : TYPE_3MM;
   }
 
   function compareText(a, b) {
@@ -694,11 +874,17 @@
 
   function getItemGroupInfo(item) {
     var colorInfo = getBackMostDrawableColorInfo(item);
-    var representative = colorInfo ? colorInfo.item : findBackMostDrawable(item);
+    var representative = colorInfo
+      ? colorInfo.item
+      : findBackMostDrawable(item);
     if (!representative) representative = item;
 
-    var fillHex = colorInfo ? colorInfo.fillHex : getItemFillHex(representative);
-    var strokeHex = colorInfo ? colorInfo.strokeHex : getItemStrokeHex(representative);
+    var fillHex = colorInfo
+      ? colorInfo.fillHex
+      : getItemFillHex(representative);
+    var strokeHex = colorInfo
+      ? colorInfo.strokeHex
+      : getItemStrokeHex(representative);
     var rawHex = fillHex || strokeHex;
     var matched = rawHex ? matchPaletteColor(rawHex) : null;
 
@@ -730,7 +916,7 @@
       labelText: groupType + " - " + colorName,
       typeSortIndex: TYPE_SORT_ORDER[groupType],
       colorSortIndex: colorSortIndex,
-      colorSortKey: colorSortKey
+      colorSortKey: colorSortKey,
     };
   }
 
@@ -779,7 +965,9 @@
   }
 
   function getDocumentFsPath(docRef) {
-    try { return normalizeFsPathText(docRef.fullName.fsName); } catch (eDocPath) {}
+    try {
+      return normalizeFsPathText(docRef.fullName.fsName);
+    } catch (eDocPath) {}
     return "";
   }
 
@@ -792,7 +980,9 @@
 
   function getFolderModifiedTime(folder) {
     var modified = null;
-    try { modified = folder.modified; } catch (eModified) {}
+    try {
+      modified = folder.modified;
+    } catch (eModified) {}
     if (!modified) return 0;
 
     try {
@@ -809,22 +999,32 @@
 
   function formatFolderModifiedDate(folder) {
     var modified = null;
-    try { modified = folder.modified; } catch (eModified) {}
+    try {
+      modified = folder.modified;
+    } catch (eModified) {}
     if (!modified) return "Unknown";
 
     try {
-      return modified.getFullYear() + "-" +
-        pad2(modified.getMonth() + 1) + "-" +
-        pad2(modified.getDate()) + " " +
-        pad2(modified.getHours()) + ":" +
-        pad2(modified.getMinutes());
+      return (
+        modified.getFullYear() +
+        "-" +
+        pad2(modified.getMonth() + 1) +
+        "-" +
+        pad2(modified.getDate()) +
+        " " +
+        pad2(modified.getHours()) +
+        ":" +
+        pad2(modified.getMinutes())
+      );
     } catch (eFormatModified) {}
     return "Unknown";
   }
 
   function getReadableFolderName(folder) {
     var text = "";
-    try { text = String(folder.name); } catch (eFolderName) {}
+    try {
+      text = String(folder.name);
+    } catch (eFolderName) {}
     if (!text) return "";
 
     try {
@@ -844,13 +1044,17 @@
       folderEntries.push({
         folder: childFolders[i],
         modifiedTime: getFolderModifiedTime(childFolders[i]),
-        modifiedText: formatFolderModifiedDate(childFolders[i])
+        modifiedText: formatFolderModifiedDate(childFolders[i]),
       });
     }
 
     folderEntries.sort(function (a, b) {
-      if (a.modifiedTime !== b.modifiedTime) return b.modifiedTime - a.modifiedTime;
-      return compareText(String(a.folder.name).toLowerCase(), String(b.folder.name).toLowerCase());
+      if (a.modifiedTime !== b.modifiedTime)
+        return b.modifiedTime - a.modifiedTime;
+      return compareText(
+        String(a.folder.name).toLowerCase(),
+        String(b.folder.name).toLowerCase(),
+      );
     });
 
     return folderEntries;
@@ -864,17 +1068,25 @@
       picker.orientation = "column";
       picker.alignChildren = "fill";
 
-      var info = picker.add("statictext", undefined, infoText, { multiline: true });
+      var info = picker.add("statictext", undefined, infoText, {
+        multiline: true,
+      });
       info.alignment = "fill";
 
       var list = picker.add("listbox", undefined, [], {
-        multiselect: false
+        multiselect: false,
       });
       list.preferredSize = [720, 320];
 
       for (var i = 0; i < folderEntries.length; i++) {
         var entry = folderEntries[i];
-        var item = list.add("item", getReadableFolderName(entry.folder) + "    [" + entry.modifiedText + "]");
+        var item = list.add(
+          "item",
+          getReadableFolderName(entry.folder) +
+            "    [" +
+            entry.modifiedText +
+            "]",
+        );
         item.folderRef = entry.folder;
       }
 
@@ -893,7 +1105,9 @@
         chosenFolder = list.selection.folderRef;
         picker.close(1);
       };
-      cancel.onClick = function () { picker.close(0); };
+      cancel.onClick = function () {
+        picker.close(0);
+      };
       list.onDoubleClick = function () {
         if (!list.selection) return;
         chosenFolder = list.selection.folderRef;
@@ -924,7 +1138,7 @@
     var parentFolder = chooseFolderFromEntries(
       "Choose Source Folder",
       "Folders under:\n" + mainFolder.fsName,
-      topLevelEntries
+      topLevelEntries,
     );
     if (!parentFolder) return null;
 
@@ -942,7 +1156,7 @@
     var chosenFolder = chooseFolderFromEntries(
       "Choose Source Subfolder",
       "Subfolders under:\n" + parentFolder.fsName,
-      childEntries
+      childEntries,
     );
     if (!chosenFolder) return null;
 
@@ -960,7 +1174,10 @@
     });
 
     aiFiles.sort(function (a, b) {
-      return compareText(String(a.name).toLowerCase(), String(b.name).toLowerCase());
+      return compareText(
+        String(a.name).toLowerCase(),
+        String(b.name).toLowerCase(),
+      );
     });
     return aiFiles;
   }
@@ -969,7 +1186,8 @@
     var targetPath = normalizeFsPathText(fileRef.fsName);
 
     for (var i = 0; i < app.documents.length; i++) {
-      if (getDocumentFsPath(app.documents[i]) === targetPath) return app.documents[i];
+      if (getDocumentFsPath(app.documents[i]) === targetPath)
+        return app.documents[i];
     }
     return null;
   }
@@ -998,7 +1216,7 @@
       skippedFileCount: 0,
       importedCount: 0,
       aiFileCount: 0,
-      sourceFolderPath: sourceFolder.fsName
+      sourceFolderPath: sourceFolder.fsName,
     };
 
     var aiFiles = getDirectAiFiles(sourceFolder);
@@ -1009,7 +1227,10 @@
 
     for (var i = 0; i < aiFiles.length; i++) {
       var aiFile = aiFiles[i];
-      if (targetDocPath && normalizeFsPathText(aiFile.fsName) === targetDocPath) {
+      if (
+        targetDocPath &&
+        normalizeFsPathText(aiFile.fsName) === targetDocPath
+      ) {
         result.skippedFileCount++;
         continue;
       }
@@ -1033,7 +1254,10 @@
 
         for (var itemIndex = 0; itemIndex < sourceItems.length; itemIndex++) {
           try {
-            var dup = sourceItems[itemIndex].duplicate(targetLayer, ElementPlacement.PLACEATEND);
+            var dup = sourceItems[itemIndex].duplicate(
+              targetLayer,
+              ElementPlacement.PLACEATEND,
+            );
             if (dup && isPackable(dup)) {
               result.items.push(dup);
               importedFromFile++;
@@ -1051,7 +1275,9 @@
         result.skippedFileCount++;
       } finally {
         if (sourceDoc && openedHere) {
-          try { sourceDoc.close(SaveOptions.DONOTSAVECHANGES); } catch (eCloseSource) {}
+          try {
+            sourceDoc.close(SaveOptions.DONOTSAVECHANGES);
+          } catch (eCloseSource) {}
         }
       }
     }
@@ -1059,8 +1285,14 @@
     return result;
   }
 
-  for (var paletteIndex = 0; paletteIndex < COLOR_PALETTE.length; paletteIndex++) {
-    COLOR_PALETTE[paletteIndex].hex = normalizeHex(COLOR_PALETTE[paletteIndex].hex);
+  for (
+    var paletteIndex = 0;
+    paletteIndex < COLOR_PALETTE.length;
+    paletteIndex++
+  ) {
+    COLOR_PALETTE[paletteIndex].hex = normalizeHex(
+      COLOR_PALETTE[paletteIndex].hex,
+    );
     COLOR_PALETTE[paletteIndex].rgb = hexToRgb(COLOR_PALETTE[paletteIndex].hex);
     COLOR_PALETTE[paletteIndex].sortIndex = paletteIndex;
   }
@@ -1070,9 +1302,14 @@
   // ----------------------------
   // bounds: [L, T, R, B]
   function getUnionBounds(item) {
-    var gb = null, vb = null;
-    try { gb = item.geometricBounds; } catch (e1) {}
-    try { vb = item.visibleBounds; } catch (e2) {}
+    var gb = null,
+      vb = null;
+    try {
+      gb = item.geometricBounds;
+    } catch (e1) {}
+    try {
+      vb = item.visibleBounds;
+    } catch (e2) {}
 
     if (!gb && !vb) return null;
     if (!gb) return vb;
@@ -1082,7 +1319,7 @@
       Math.min(gb[0], vb[0]),
       Math.max(gb[1], vb[1]),
       Math.max(gb[2], vb[2]),
-      Math.min(gb[3], vb[3])
+      Math.min(gb[3], vb[3]),
     ];
   }
 
@@ -1100,18 +1337,24 @@
 
   function getClippingMaskBounds(item) {
     var isClipped = false;
-    try { isClipped = item.clipped === true; } catch (eClipped) {}
+    try {
+      isClipped = item.clipped === true;
+    } catch (eClipped) {}
     if (!isClipped) return null;
 
     var children = null;
-    try { children = item.pageItems; } catch (eChildren) {}
+    try {
+      children = item.pageItems;
+    } catch (eChildren) {}
     if (!children || !children.length) return null;
 
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
       if (!isClippingItem(child) && !isCompoundClippingItem(child)) continue;
 
-      try { return child.geometricBounds; } catch (eMaskBounds) {}
+      try {
+        return child.geometricBounds;
+      } catch (eMaskBounds) {}
     }
 
     return null;
@@ -1123,11 +1366,17 @@
     return getUnionBounds(item);
   }
 
-  function boundsWidthPt(b) { return b[2] - b[0]; }
-  function boundsHeightPt(b) { return b[1] - b[3]; }
+  function boundsWidthPt(b) {
+    return b[2] - b[0];
+  }
+  function boundsHeightPt(b) {
+    return b[1] - b[3];
+  }
 
   // Move bounds MUST match sizing bounds for consistent spacing
-  function getMoveBounds(item) { return getPackingBounds(item); }
+  function getMoveBounds(item) {
+    return getPackingBounds(item);
+  }
 
   // ----------------------------
   // Free-rectangle packer helpers
@@ -1169,7 +1418,7 @@
         leftoverShort: Math.min(leftoverW, leftoverH),
         leftoverLong: Math.max(leftoverW, leftoverH),
         freeRect: rect,
-        placedRect: { x: rect.x, y: rect.y, w: cw, h: ch }
+        placedRect: { x: rect.x, y: rect.y, w: cw, h: ch },
       };
 
       if (!best || comparePlacementScores(candidate, best) < 0) {
@@ -1223,7 +1472,7 @@
         x: chosenRect.x + placedRect.w,
         y: chosenRect.y,
         w: rightW,
-        h: chosenRect.h
+        h: chosenRect.h,
       });
     }
 
@@ -1233,7 +1482,7 @@
         x: chosenRect.x,
         y: chosenRect.y + placedRect.h,
         w: placedRect.w,
-        h: topH
+        h: topH,
       });
     }
 
@@ -1275,7 +1524,7 @@
     return {
       placements: placements,
       nextIndex: index,
-      usedHeight: rowHeight > 0 ? rowY + rowHeight : rowY
+      usedHeight: rowHeight > 0 ? rowY + rowHeight : rowY,
     };
   }
 
@@ -1283,7 +1532,12 @@
   // Drawing helpers (optional)
   // ----------------------------
   function createBoxAt(boxLeftPt, boxTopPt) {
-    var rect = doc.pathItems.rectangle(boxTopPt, boxLeftPt, cmToPt(BOX), cmToPt(BOX));
+    var rect = doc.pathItems.rectangle(
+      boxTopPt,
+      boxLeftPt,
+      cmToPt(BOX),
+      cmToPt(BOX),
+    );
     rect.stroked = true;
     try {
       var boxStrokeColor = makeRgbColorFromHex("#000000");
@@ -1310,18 +1564,26 @@
       var family = "";
       var style = "";
 
-      try { name = String(candidate.name).toLowerCase(); } catch (eName) {}
-      try { family = String(candidate.family).toLowerCase(); } catch (eFamily) {}
-      try { style = String(candidate.style).toLowerCase(); } catch (eStyle) {}
+      try {
+        name = String(candidate.name).toLowerCase();
+      } catch (eName) {}
+      try {
+        family = String(candidate.family).toLowerCase();
+      } catch (eFamily) {}
+      try {
+        style = String(candidate.style).toLowerCase();
+      } catch (eStyle) {}
 
-      if (name.indexOf(needle) === -1 && family.indexOf(needle) === -1) continue;
+      if (name.indexOf(needle) === -1 && family.indexOf(needle) === -1)
+        continue;
 
       var score = 0;
       if (name === needle) score += 100;
       if (family === needle) score += 80;
       if (name.indexOf(needle) !== -1) score += 20;
       if (family.indexOf(needle) !== -1) score += 20;
-      if (style === "regular" || style === "roman" || style === "normal") score += 10;
+      if (style === "regular" || style === "roman" || style === "normal")
+        score += 10;
 
       if (score > bestScore) {
         bestScore = score;
@@ -1343,7 +1605,8 @@
       if (labelFont) labelRange.characterAttributes.textFont = labelFont;
       labelRange.characterAttributes.size = LABEL_FONT_SIZE;
       var labelFillColor = makeRgbColorFromHex(labelColorHex);
-      if (labelFillColor) labelRange.characterAttributes.fillColor = labelFillColor;
+      if (labelFillColor)
+        labelRange.characterAttributes.fillColor = labelFillColor;
     } catch (eTextStyle) {}
 
     try {
@@ -1396,8 +1659,10 @@
     return getUnionBounds(item) !== null;
   }
 
-  var workflowModeLabel = workflowMode === WORKFLOW_PRINT ? "Pack for print" : "Pack for lasercut";
-  var sourceModeLabel = sourceMode === SOURCE_FOLDER ? "Folder import" : "Current selection";
+  var workflowModeLabel =
+    workflowMode === WORKFLOW_PRINT ? "Pack for print" : "Pack for lasercut";
+  var sourceModeLabel =
+    sourceMode === SOURCE_FOLDER ? "Folder import" : "Current selection";
   var keepFillAfterPacking = workflowMode === WORKFLOW_PRINT;
   var processedFileCount = 0;
   var skippedFileCount = 0;
@@ -1409,7 +1674,9 @@
   if (sourceMode === SOURCE_SELECTION) {
     inputItems = doc.selection;
     if (!inputItems || inputItems.length === 0) {
-      alert("Select the objects (groups are OK) you want to pack, then run again.");
+      alert(
+        "Select the objects (groups are OK) you want to pack, then run again.",
+      );
       return;
     }
   } else {
@@ -1428,29 +1695,51 @@
     if (!inputItems || inputItems.length === 0) {
       alert(
         "No packable items were imported.\n\n" +
-        "Folder: " + sourceFolderPath + "\n" +
-        ".ai files found: " + aiFileCount + "\n" +
-        "Files processed: " + processedFileCount + "\n" +
-        "Files skipped: " + skippedFileCount
+          "Folder: " +
+          sourceFolderPath +
+          "\n" +
+          ".ai files found: " +
+          aiFileCount +
+          "\n" +
+          "Files processed: " +
+          processedFileCount +
+          "\n" +
+          "Files skipped: " +
+          skippedFileCount,
       );
       return;
     }
 
     if (workflowMode === WORKFLOW_PRINT) {
-      try { doc.selection = null; } catch (eClearSelection) {}
+      try {
+        doc.selection = null;
+      } catch (eClearSelection) {}
 
-      for (var importedIndex = 0; importedIndex < importResult.items.length; importedIndex++) {
-        try { importResult.items[importedIndex].selected = true; } catch (eSelectImported) {}
+      for (
+        var importedIndex = 0;
+        importedIndex < importResult.items.length;
+        importedIndex++
+      ) {
+        try {
+          importResult.items[importedIndex].selected = true;
+        } catch (eSelectImported) {}
       }
 
       alert(
         "Imported items are selected.\n\n" +
-        "Choose what you want to pack, then rerun:\n" +
-        "Pack for print -> Pack current selection\n\n" +
-        "Folder: " + sourceFolderPath + "\n" +
-        "Imported objects: " + importedCount + "\n" +
-        "Files processed: " + processedFileCount + "\n" +
-        "Files skipped: " + skippedFileCount
+          "Choose what you want to pack, then rerun:\n" +
+          "Pack for print -> Pack current selection\n\n" +
+          "Folder: " +
+          sourceFolderPath +
+          "\n" +
+          "Imported objects: " +
+          importedCount +
+          "\n" +
+          "Files processed: " +
+          processedFileCount +
+          "\n" +
+          "Files skipped: " +
+          skippedFileCount,
       );
       return;
     }
@@ -1491,7 +1780,7 @@
       groupLabelText: groupInfo.labelText,
       groupTypeSortIndex: groupInfo.typeSortIndex,
       groupColorSortIndex: groupInfo.colorSortIndex,
-      groupColorSortKey: groupInfo.colorSortKey
+      groupColorSortKey: groupInfo.colorSortKey,
     });
   }
 
@@ -1499,10 +1788,17 @@
     if (sourceMode === SOURCE_FOLDER) {
       alert(
         "No packable imported items found.\n\n" +
-        "Folder: " + sourceFolderPath + "\n" +
-        "Imported objects: " + importedCount + "\n" +
-        "Files processed: " + processedFileCount + "\n" +
-        "Files skipped: " + skippedFileCount
+          "Folder: " +
+          sourceFolderPath +
+          "\n" +
+          "Imported objects: " +
+          importedCount +
+          "\n" +
+          "Files processed: " +
+          processedFileCount +
+          "\n" +
+          "Files skipped: " +
+          skippedFileCount,
       );
     } else {
       alert("No packable items found in selection.");
@@ -1526,7 +1822,7 @@
         labelColorHex: groupedItem.groupColorHex,
         items: [],
         smallItems: [],
-        regularItems: []
+        regularItems: [],
       };
       itemGroups.push(currentGroup);
     }
@@ -1534,12 +1830,20 @@
   }
 
   var preUnplaced = [];
-  for (var groupSortIndex = 0; groupSortIndex < itemGroups.length; groupSortIndex++) {
+  for (
+    var groupSortIndex = 0;
+    groupSortIndex < itemGroups.length;
+    groupSortIndex++
+  ) {
     var groupedItems = itemGroups[groupSortIndex].items;
     var smallBucketItems = [];
     var regularItems = [];
 
-    for (var groupedItemIndex = 0; groupedItemIndex < groupedItems.length; groupedItemIndex++) {
+    for (
+      var groupedItemIndex = 0;
+      groupedItemIndex < groupedItems.length;
+      groupedItemIndex++
+    ) {
       var groupedObj = groupedItems[groupedItemIndex];
       if (groupedObj.cw > GW || groupedObj.ch > GH) {
         preUnplaced.push(groupedObj.item);
@@ -1569,7 +1873,7 @@
     var row = Math.floor(boxIndex / MAX_PER_ROW);
     return {
       left: AB_L + cmToPt(col * (BOX + BOX_COL_GAP)),
-      top:  AB_T - cmToPt(row * (BOX + BOX_ROW_GAP))
+      top: AB_T - cmToPt(row * (BOX + BOX_ROW_GAP)),
     };
   }
 
@@ -1615,7 +1919,12 @@
   function drawCurrentBoxIfNeeded() {
     if (!doDraw || currentBoxDrawn || !currentBoxPos) return;
     createBoxAt(currentBoxPos.left, currentBoxPos.top);
-    createCenteredLabel(currentBoxLabelText, currentBoxLabelColorHex, currentBoxPos.left, currentBoxPos.top);
+    createCenteredLabel(
+      currentBoxLabelText,
+      currentBoxLabelColorHex,
+      currentBoxPos.left,
+      currentBoxPos.top,
+    );
     currentBoxDrawn = true;
   }
 
@@ -1623,10 +1932,21 @@
     var usable = usableOriginForBox(currentBoxPos.left, currentBoxPos.top);
     var targetX = usable.left + cmToPt(cellX * CELL + OBJ_PAD);
     var targetY = usable.bottom + cmToPt(cellY * CELL + OBJ_PAD);
+    var keepFillForRedStrokeTarget = isRedStrokeOffTarget(
+      obj.item,
+      obj.groupType,
+    );
 
     if (!moveItemBottomLeftTo(obj.item, targetX, targetY)) return false;
     if (!keepFillAfterPacking) {
-      try { removeFillFromPackedItem(obj.item); } catch (eRemoveFill) {}
+      if (!keepFillForRedStrokeTarget) {
+        try {
+          removeFillFromPackedItem(obj.item);
+        } catch (eRemoveFill) {}
+      }
+      try {
+        turnOffRedStrokeForUngrouped3mmItem(obj.item, obj.groupType);
+      } catch (eRemoveStroke) {}
     }
 
     if (!currentBoxHasPlacement) {
@@ -1645,13 +1965,26 @@
     var smallIndex = 0;
     var regularIndex = 0;
 
-    while (smallIndex < group.smallItems.length || regularIndex < group.regularItems.length) {
+    while (
+      smallIndex < group.smallItems.length ||
+      regularIndex < group.regularItems.length
+    ) {
       startNewBox(group.labelText, group.labelColorHex);
 
       var smallPack = packSmallItemsInRows(group.smallItems, smallIndex);
-      for (var smallPlacementIndex = 0; smallPlacementIndex < smallPack.placements.length; smallPlacementIndex++) {
+      for (
+        var smallPlacementIndex = 0;
+        smallPlacementIndex < smallPack.placements.length;
+        smallPlacementIndex++
+      ) {
         var smallPlacement = smallPack.placements[smallPlacementIndex];
-        if (!placeItemAtCells(smallPlacement.item, smallPlacement.x, smallPlacement.y)) {
+        if (
+          !placeItemAtCells(
+            smallPlacement.item,
+            smallPlacement.x,
+            smallPlacement.y,
+          )
+        ) {
           unplaced.push(smallPlacement.item.item);
         }
       }
@@ -1690,13 +2023,20 @@
     msg += "Files skipped: " + skippedFileCount + "\n";
     msg += "Imported objects: " + importedCount + "\n";
   }
-  msg += "Mode: " + (doDraw ? "Option 2 (draw box + label)" : "Option 1 (pack only)") + "\n";
+  msg +=
+    "Mode: " +
+    (doDraw ? "Option 2 (draw box + label)" : "Option 1 (pack only)") +
+    "\n";
   msg += "Placed: " + placedCount + " / " + items.length + "\n";
   msg += "Boxes used: " + boxesUsed + "\n";
   msg += "CELL: " + CELL + "cm\n";
   msg += "BOX_PAD: " + BOX_PAD + "cm\n";
-  msg += "Gap between objects: " + OBJ_GAP + "cm (per-side pad " + OBJ_PAD + "cm)\n";
-  msg += "Grouping: type + color (per-channel RGB tolerance " + COLOR_TOLERANCE + ")\n";
+  msg +=
+    "Gap between objects: " + OBJ_GAP + "cm (per-side pad " + OBJ_PAD + "cm)\n";
+  msg +=
+    "Grouping: type + color (per-channel RGB tolerance " +
+    COLOR_TOLERANCE +
+    ")\n";
   msg += "Usable (grid-covered): " + USE_EFF_CM + "cm\n";
   if (unplaced.length > 0) msg += "\nUnplaced items: " + unplaced.length + "\n";
 
