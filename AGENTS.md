@@ -69,11 +69,36 @@ The main priorities are:
 
 When grouping objects by color:
 
-- Use the first rendered item inside a group as the base layer when the task says “first layer color”.
-- Interpret “first layer” as the back-most visible drawable item.
+- Use the first rendered item inside a group as the base layer when the task says "first layer color".
+- Interpret "first layer" as the back-most visible drawable item.
 - Prefer fill color first, then stroke color as fallback, unless the task says to use both.
 - If using both fill and stroke in a grouping key, keep that behavior explicit in code comments.
 - Quantization or tolerance must be defined in one place so it is easy to tune later.
+
+---
+
+## Repository-specific notes
+
+- `PackByTypeColor.jsx` is the main script in this repo.
+- The menu flow is workflow -> source -> draw.
+- `Pack for print -> Pack from folder` is import-only:
+  - import items
+  - select imported items
+  - stop so the user can rerun with current selection
+- Drawn packing boxes use a black stroke and no fill.
+- Packing bounds currently follow these rules:
+  - clipped containers use the clipping mask path `geometricBounds`
+  - non-clipped containers union child effective bounds recursively
+  - leaf items fall back to `union(visibleBounds, geometricBounds)`
+- Current lasercut post-pack styling rules are important and should not be changed silently:
+  - print mode does not remove fill or stroke
+  - standalone top-level red `#FF0000` path or compound path keeps fill and turns red stroke off
+  - whole grouped `3mm` item with all descendant path-like leaves red-stroked keeps fill and turns red stroke off
+  - mixed grouped `3mm` items may style direct child subtrees differently:
+    - first rendered all-red subgroup gets red stroke off
+    - first rendered red leaf gets only that leaf's red stroke off
+    - other direct siblings use the normal fill-off path
+  - the normal fill-off path only removes fill from leaves that have both usable fill and usable stroke
 
 ---
 
@@ -93,7 +118,7 @@ If a script includes a menu or dialog:
 When updating a script:
 
 - Do not remove working behavior unless asked.
-- Do not add heavy or slow algorithms if a simpler fast approach already matches the user’s intent.
+- Do not add heavy or slow algorithms if a simpler fast approach already matches the user's intent.
 - If a new approach is slower or riskier, keep the old logic available or revert cleanly.
 - Preserve comments that explain user-facing behavior.
 

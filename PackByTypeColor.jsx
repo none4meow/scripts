@@ -868,6 +868,19 @@
     return isAllRedStrokeSubtree(firstSubtree);
   }
 
+  function isFirstRenderedDirectChildRedLeaf(item, groupType) {
+    if (!item) return false;
+    if (groupType !== TYPE_3MM) return false;
+    if (!isContainerForRepresentativeLookup(item)) return false;
+
+    var firstChild = getFirstRenderedDirectChildSubtree(item);
+    if (!firstChild) return false;
+    if (isContainerForRepresentativeLookup(firstChild)) return false;
+    if (!isRedStrokeOffEligibleItem(firstChild)) return false;
+
+    return getDirectComparableStrokeHex(firstChild) === RED_STROKE_OFF_HEX;
+  }
+
   function hasRedStrokeTarget(item, groupType) {
     if (!item) return false;
     return (
@@ -880,10 +893,16 @@
     if (!item) return false;
     if (groupType !== TYPE_3MM) return false;
     if (!isContainerForRepresentativeLookup(item)) return false;
-    if (!isFirstRenderedSubgroupAllRedStroke(item, groupType)) return false;
 
-    var firstSubtree = getFirstRenderedDirectChildSubtree(item);
-    if (!firstSubtree) return false;
+    var firstChild = getFirstRenderedDirectChildSubtree(item);
+    var useFirstRenderedRedSubgroup =
+      isFirstRenderedSubgroupAllRedStroke(item, groupType);
+    var useFirstRenderedRedLeaf = isFirstRenderedDirectChildRedLeaf(
+      item,
+      groupType,
+    );
+    if (!useFirstRenderedRedSubgroup && !useFirstRenderedRedLeaf) return false;
+    if (!firstChild) return false;
 
     var children = getRenderedChildrenInDirectOrder(item);
     var styled = false;
@@ -893,7 +912,7 @@
       var childInfo = getFirstRenderedRepresentativeInfo(child, false);
       if (!childInfo) continue;
 
-      if (child === firstSubtree) {
+      if (child === firstChild) {
         removeRedStrokeFromPackedItem(child, groupType);
       } else {
         removeFillFromPackedItem(child);
