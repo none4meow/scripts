@@ -16,9 +16,10 @@
  *  - CELL = 0.15cm (tight grid)
  *  - New box when full; max 6 boxes per row; box gap = 10cm
  *  - Label is 10cm below box (only in Option 2)
- *  - Group objects by matched color + type before packing
+ *  - Option 1 (Pack only) packs all eligible items as one combined pool
+ *  - Option 2 groups objects by matched color + type before packing
  *  - Type is based on stroke color (#0000FF = 5mm, otherwise 3mm)
- *  - Each box holds only one color/type group; group overflow continues to the next box
+ *  - Option 2 uses one color/type group per box; group overflow continues to the next box
  *  - Small items are packed into bottom rows first; larger items are then packed above them
  *
  * Notes:
@@ -534,6 +535,43 @@
     return getItemFillHex(item) !== null || getItemStrokeHex(item) !== null;
   }
 
+  function hasUsableLeafAppearance(item) {
+    if (!item) return false;
+    if (isClippingItem(item)) return false;
+    if (!isDrawableLeaf(item)) return false;
+
+    var typename = getItemTypename(item);
+    if (
+      typename === "RasterItem" ||
+      typename === "PlacedItem" ||
+      typename === "SymbolItem" ||
+      typename === "MeshItem" ||
+      typename === "PluginItem"
+    ) {
+      return true;
+    }
+
+    return hasUsableRepresentativeColor(item);
+  }
+
+  function hasVisiblePackAppearance(item) {
+    if (!item) return false;
+
+    try {
+      if (item.hidden || item.locked) return false;
+    } catch (eState) {}
+
+    if (isContainerForRepresentativeLookup(item)) {
+      var children = getRenderedChildrenInDirectOrder(item);
+      for (var i = 0; i < children.length; i++) {
+        if (hasVisiblePackAppearance(children[i])) return true;
+      }
+      return false;
+    }
+
+    return hasUsableLeafAppearance(item);
+  }
+
   function isClippingItem(item) {
     try {
       return item.clipping === true;
@@ -1021,7 +1059,7 @@
   }
 
   function hasUsablePackAppearance(item) {
-    return getBackMostDrawableColorInfo(item) !== null;
+    return hasVisiblePackAppearance(item);
   }
 
   function colorsMatchWithinTolerance(rgbA, rgbB, tolerance) {
@@ -2057,27 +2095,41 @@
     return;
   }
 
-  // ----------------------------
-  // Sort by color + type, then prepare bottom-strip small rows inside each group
-  // ----------------------------
-  items.sort(compareCollectedItems);
-
   var itemGroups = [];
-  var currentGroup = null;
-  for (var itemIndex = 0; itemIndex < items.length; itemIndex++) {
-    var groupedItem = items[itemIndex];
-    if (!currentGroup || currentGroup.key !== groupedItem.groupKey) {
-      currentGroup = {
-        key: groupedItem.groupKey,
-        labelText: groupedItem.groupLabelText,
-        labelColorHex: groupedItem.groupColorHex,
-        items: [],
-        smallItems: [],
-        regularItems: [],
-      };
-      itemGroups.push(currentGroup);
+  if (doDraw) {
+    // ----------------------------
+    // Option 2: sort by color + type, then prepare bottom-strip small rows inside each group
+    // ----------------------------
+    items.sort(compareCollectedItems);
+
+    var currentGroup = null;
+    for (var itemIndex = 0; itemIndex < items.length; itemIndex++) {
+      var groupedItem = items[itemIndex];
+      if (!currentGroup || currentGroup.key !== groupedItem.groupKey) {
+        currentGroup = {
+          key: groupedItem.groupKey,
+          labelText: groupedItem.groupLabelText,
+          labelColorHex: groupedItem.groupColorHex,
+          items: [],
+          smallItems: [],
+          regularItems: [],
+        };
+        itemGroups.push(currentGroup);
+      }
+      currentGroup.items.push(groupedItem);
     }
-    currentGroup.items.push(groupedItem);
+  } else {
+    // ----------------------------
+    // Option 1: pack everything as one combined pool
+    // ----------------------------
+    itemGroups.push({
+      key: "__PACK_ONLY__",
+      labelText: "",
+      labelColorHex: "#000000",
+      items: items.slice(0),
+      smallItems: [],
+      regularItems: [],
+    });
   }
 
   var preUnplaced = [];
@@ -2286,10 +2338,14 @@
   msg += "BOX_PAD: " + BOX_PAD + "cm\n";
   msg +=
     "Gap between objects: " + OBJ_GAP + "cm (per-side pad " + OBJ_PAD + "cm)\n";
-  msg +=
-    "Grouping: type + color (per-channel RGB tolerance " +
-    COLOR_TOLERANCE +
-    ")\n";
+  if (doDraw) {
+    msg +=
+      "Grouping: type + color (per-channel RGB tolerance " +
+      COLOR_TOLERANCE +
+      ")\n";
+  } else {
+    msg += "Grouping: single pool (Pack only ignores type + color)\n";
+  }
   msg += "Usable (grid-covered): " + USE_EFF_CM + "cm\n";
   if (unplaced.length > 0) msg += "\nUnplaced items: " + unplaced.length + "\n";
 
