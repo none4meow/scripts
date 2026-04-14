@@ -829,14 +829,43 @@
     }
   }
 
-  function isAllGroupPathLayersRedStroke(item, groupType) {
+  function isAllRedStrokeSubtree(item) {
     if (!item) return false;
-    if (groupType !== TYPE_3MM) return false;
     if (!isContainerForRepresentativeLookup(item)) return false;
 
     var status = { hasLeaf: false, allRed: true };
     collectGroupPathStrokeStatus(item, status);
     return status.hasLeaf && status.allRed;
+  }
+
+  function isAllGroupPathLayersRedStroke(item, groupType) {
+    if (!item) return false;
+    if (groupType !== TYPE_3MM) return false;
+    return isAllRedStrokeSubtree(item);
+  }
+
+  function getFirstRenderedDirectChildSubtree(item) {
+    if (!item) return null;
+    if (!isContainerForRepresentativeLookup(item)) return null;
+
+    var children = getRenderedChildrenInDirectOrder(item);
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      var childInfo = getFirstRenderedRepresentativeInfo(child, false);
+      if (childInfo) return child;
+    }
+
+    return null;
+  }
+
+  function isFirstRenderedSubgroupAllRedStroke(item, groupType) {
+    if (!item) return false;
+    if (groupType !== TYPE_3MM) return false;
+    if (!isContainerForRepresentativeLookup(item)) return false;
+
+    var firstSubtree = getFirstRenderedDirectChildSubtree(item);
+    if (!firstSubtree) return false;
+    return isAllRedStrokeSubtree(firstSubtree);
   }
 
   function hasRedStrokeTarget(item, groupType) {
@@ -845,6 +874,34 @@
       isStandaloneRedStrokeTarget(item, groupType) ||
       isAllGroupPathLayersRedStroke(item, groupType)
     );
+  }
+
+  function applyMixedGroupLasercutStyling(item, groupType) {
+    if (!item) return false;
+    if (groupType !== TYPE_3MM) return false;
+    if (!isContainerForRepresentativeLookup(item)) return false;
+    if (!isFirstRenderedSubgroupAllRedStroke(item, groupType)) return false;
+
+    var firstSubtree = getFirstRenderedDirectChildSubtree(item);
+    if (!firstSubtree) return false;
+
+    var children = getRenderedChildrenInDirectOrder(item);
+    var styled = false;
+
+    for (var i = 0; i < children.length; i++) {
+      var child = children[i];
+      var childInfo = getFirstRenderedRepresentativeInfo(child, false);
+      if (!childInfo) continue;
+
+      if (child === firstSubtree) {
+        removeRedStrokeFromPackedItem(child, groupType);
+      } else {
+        removeFillFromPackedItem(child);
+      }
+      styled = true;
+    }
+
+    return styled;
   }
 
   function removeRedStrokeFromPackedItem(item, groupType) {
@@ -2107,17 +2164,18 @@
     var usable = usableOriginForBox(currentBoxPos.left, currentBoxPos.top);
     var targetX = usable.left + cmToPt(cellX * CELL + OBJ_PAD);
     var targetY = usable.bottom + cmToPt(cellY * CELL + OBJ_PAD);
-    var keepFillForRedStrokeTarget = hasRedStrokeTarget(
+    var keepFillForWholeItemRedStrokeTarget = hasRedStrokeTarget(
       obj.item,
       obj.groupType,
     );
 
     if (!moveItemBottomLeftTo(obj.item, targetX, targetY)) return false;
     if (!keepFillAfterPacking) {
-      if (keepFillForRedStrokeTarget) {
+      if (keepFillForWholeItemRedStrokeTarget) {
         try {
           removeRedStrokeFromPackedItem(obj.item, obj.groupType);
         } catch (eRemoveStroke) {}
+      } else if (applyMixedGroupLasercutStyling(obj.item, obj.groupType)) {
       } else {
         try {
           removeFillFromPackedItem(obj.item);
