@@ -1065,14 +1065,25 @@
     return a.collectIndex - b.collectIndex;
   }
 
-  function compareSmallBucketItems(a, b) {
-    if (a.heightCells !== b.heightCells) return a.heightCells - b.heightCells;
+  function compareByCellSize(a, b) {
     if (a.cw !== b.cw) return a.cw - b.cw;
+    if (a.ch !== b.ch) return a.ch - b.ch;
+    return 0;
+  }
+
+  function compareSmallBucketItems(a, b) {
+    var cellCompare = compareByCellSize(a, b);
+    if (cellCompare !== 0) return cellCompare;
+
+    if (a.heightCells !== b.heightCells) return a.heightCells - b.heightCells;
     if (a.area !== b.area) return a.area - b.area;
     return a.collectIndex - b.collectIndex;
   }
 
   function compareDenseGroupItems(a, b) {
+    var cellCompare = compareByCellSize(a, b);
+    if (cellCompare !== 0) return cellCompare;
+
     if (a.longestSideCells !== b.longestSideCells) {
       return b.longestSideCells - a.longestSideCells;
     }
@@ -1487,9 +1498,43 @@
     return null;
   }
 
+  function unionBoundsArrays(boundsA, boundsB) {
+    if (!boundsA) return boundsB;
+    if (!boundsB) return boundsA;
+
+    return [
+      Math.min(boundsA[0], boundsB[0]),
+      Math.max(boundsA[1], boundsB[1]),
+      Math.max(boundsA[2], boundsB[2]),
+      Math.min(boundsA[3], boundsB[3]),
+    ];
+  }
+
   function getPackingBounds(item) {
     var maskBounds = getClippingMaskBounds(item);
     if (maskBounds) return maskBounds;
+
+    var children = null;
+    try {
+      children = item.pageItems;
+    } catch (eChildren) {}
+
+    if (children && children.length) {
+      var mergedBounds = null;
+
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+
+        try {
+          if (child.hidden || child.locked) continue;
+        } catch (eChildState) {}
+
+        mergedBounds = unionBoundsArrays(mergedBounds, getPackingBounds(child));
+      }
+
+      if (mergedBounds) return mergedBounds;
+    }
+
     return getUnionBounds(item);
   }
 
