@@ -189,7 +189,7 @@
   var TYPE_5MM = "5mm";
   var TYPE_3MM = "3mm";
   var TYPE_5MM_STROKE_HEX = "#0000FF";
-  var UNGROUPED_3MM_STROKE_OFF_HEX = "#FF0000";
+  var RED_STROKE_OFF_HEX = "#FF0000";
   var MAX_PER_ROW = 5;
   var SMALL_BUCKET_MAX_CELLS = Math.ceil(SMALL_BUCKET_MAX_SIDE_CM / CELL);
 
@@ -377,6 +377,55 @@
       return item.typename;
     } catch (eType) {}
     return "";
+  }
+
+  function getDocumentSelectionItems(doc) {
+    var items = [];
+    var selection = null;
+
+    try {
+      selection = doc.selection;
+    } catch (eSelection) {}
+
+    if (!selection || !selection.length) return items;
+
+    for (var i = 0; i < selection.length; i++) {
+      items.push(selection[i]);
+    }
+
+    return items;
+  }
+
+  function getDirectItemFillHex(item, ignoreState) {
+    if (!item) return null;
+
+    if (!ignoreState) {
+      try {
+        if (item.filled === false) return null;
+      } catch (eFilled) {}
+    }
+
+    try {
+      return colorToHex(item.fillColor);
+    } catch (eFill) {}
+
+    return null;
+  }
+
+  function getDirectItemStrokeHex(item, ignoreState) {
+    if (!item) return null;
+
+    if (!ignoreState) {
+      try {
+        if (item.stroked === false) return null;
+      } catch (eStroked) {}
+    }
+
+    try {
+      return colorToHex(item.strokeColor);
+    } catch (eStroke) {}
+
+    return null;
   }
 
   function getCompoundChildStyleSource(item) {
@@ -699,25 +748,28 @@
     }
   }
 
-  function isTopLevelUngroupedItem(item) {
-    if (!item) return false;
-    return getItemTypename(item.parent) === "Layer";
-  }
-
-  function isTopLevelStrokeOffEligibleItem(item) {
+  function isRedStrokeOffEligibleItem(item) {
     var typename = getItemTypename(item);
     return typename === "PathItem" || typename === "CompoundPathItem";
   }
 
-  function clearCompoundPathStroke(item, noColor) {
+  function getDirectComparableStrokeHex(item) {
+    var strokeHex = getDirectItemStrokeHex(item, false);
+    if (strokeHex === null) strokeHex = getDirectItemStrokeHex(item, true);
+    return normalizeHex(strokeHex);
+  }
+
+  function clearCompoundPathRedStroke(item, noColor) {
     if (!item) return;
 
-    try {
-      item.stroked = false;
-    } catch (eCompoundStrokedFalse) {}
-    try {
-      if (noColor) item.strokeColor = noColor;
-    } catch (eCompoundNoStrokeColor) {}
+    if (getDirectComparableStrokeHex(item) === RED_STROKE_OFF_HEX) {
+      try {
+        item.stroked = false;
+      } catch (eCompoundStrokedFalse) {}
+      try {
+        if (noColor) item.strokeColor = noColor;
+      } catch (eCompoundNoStrokeColor) {}
+    }
 
     var childPaths = [];
     try {
@@ -728,6 +780,8 @@
 
     for (var childIndex = 0; childIndex < childPaths.length; childIndex++) {
       var child = childPaths[childIndex];
+      if (getDirectComparableStrokeHex(child) !== RED_STROKE_OFF_HEX) continue;
+
       try {
         child.stroked = false;
       } catch (eChildStrokedFalse) {}
@@ -737,26 +791,95 @@
     }
   }
 
-  function isRedStrokeOffTarget(item, groupType) {
-    if (!item) return;
-    if (groupType !== TYPE_3MM) return;
-    if (!isTopLevelUngroupedItem(item)) return;
-    if (!isTopLevelStrokeOffEligibleItem(item)) return;
+  function isStandaloneRedStrokeTarget(item, groupType) {
+    if (!item) return false;
+    if (groupType !== TYPE_3MM) return false;
+    if (getItemTypename(item.parent) !== "Layer") return false;
+    if (!isRedStrokeOffEligibleItem(item)) return false;
 
-    var strokeHex = normalizeHex(getItemStrokeHex(item));
-    return strokeHex === UNGROUPED_3MM_STROKE_OFF_HEX;
+    return getDirectComparableStrokeHex(item) === RED_STROKE_OFF_HEX;
   }
 
-  function turnOffRedStrokeForUngrouped3mmItem(item, groupType) {
-    if (!isRedStrokeOffTarget(item, groupType)) return;
+  function collectGroupPathStrokeStatus(item, status) {
+    if (!item) return;
+
+    try {
+      if (item.hidden || item.locked) return;
+    } catch (eState) {}
+
+    if (isContainerForRepresentativeLookup(item)) {
+      var children = [];
+      try {
+        for (var i = 0; i < item.pageItems.length; i++) {
+          children.push(item.pageItems[i]);
+        }
+      } catch (eChildren) {}
+
+      for (var childIndex = 0; childIndex < children.length; childIndex++) {
+        collectGroupPathStrokeStatus(children[childIndex], status);
+      }
+      return;
+    }
+
+    if (!isRedStrokeOffEligibleItem(item)) return;
+
+    status.hasLeaf = true;
+    if (getDirectComparableStrokeHex(item) !== RED_STROKE_OFF_HEX) {
+      status.allRed = false;
+    }
+  }
+
+  function isAllGroupPathLayersRedStroke(item, groupType) {
+    if (!item) return false;
+    if (groupType !== TYPE_3MM) return false;
+    if (!isContainerForRepresentativeLookup(item)) return false;
+
+    var status = { hasLeaf: false, allRed: true };
+    collectGroupPathStrokeStatus(item, status);
+    return status.hasLeaf && status.allRed;
+  }
+
+  function hasRedStrokeTarget(item, groupType) {
+    if (!item) return false;
+    return (
+      isStandaloneRedStrokeTarget(item, groupType) ||
+      isAllGroupPathLayersRedStroke(item, groupType)
+    );
+  }
+
+  function removeRedStrokeFromPackedItem(item, groupType) {
+    if (!item) return;
+    if (groupType !== TYPE_3MM) return;
+
+    try {
+      if (item.hidden || item.locked) return;
+    } catch (eState) {}
+
+    if (isContainerForRepresentativeLookup(item)) {
+      var children = [];
+      try {
+        for (var i = 0; i < item.pageItems.length; i++) {
+          children.push(item.pageItems[i]);
+        }
+      } catch (eChildren) {}
+
+      for (var childIndex = 0; childIndex < children.length; childIndex++) {
+        removeRedStrokeFromPackedItem(children[childIndex], groupType);
+      }
+      return;
+    }
 
     var typename = getItemTypename(item);
+    if (!isRedStrokeOffEligibleItem(item)) return;
+
     var noColor = makeNoColor();
 
     if (typename === "CompoundPathItem") {
-      clearCompoundPathStroke(item, noColor);
+      clearCompoundPathRedStroke(item, noColor);
       return;
     }
+
+    if (getDirectComparableStrokeHex(item) !== RED_STROKE_OFF_HEX) return;
 
     try {
       item.stroked = false;
@@ -819,6 +942,10 @@
 
     if (!isDrawableLeaf(item)) return;
     turnOffFillIfFilledAndStroked(item);
+  }
+
+  function hasUsablePackAppearance(item) {
+    return getBackMostDrawableColorInfo(item) !== null;
   }
 
   function colorsMatchWithinTolerance(rgbA, rgbB, tolerance) {
@@ -1672,7 +1799,9 @@
   var inputItems = null;
 
   if (sourceMode === SOURCE_SELECTION) {
-    inputItems = doc.selection;
+    // Freeze the current selection so temporary probe selection changes
+    // cannot leak extra items into the packing input set.
+    inputItems = getDocumentSelectionItems(doc);
     if (!inputItems || inputItems.length === 0) {
       alert(
         "Select the objects (groups are OK) you want to pack, then run again.",
@@ -1752,6 +1881,7 @@
   for (var i = 0; i < inputItems.length; i++) {
     var it = inputItems[i];
     if (!isPackable(it)) continue;
+    if (!hasUsablePackAppearance(it)) continue;
 
     var pb = getPackingBounds(it);
     var wCm = ptToCm(boundsWidthPt(pb));
@@ -1932,21 +2062,22 @@
     var usable = usableOriginForBox(currentBoxPos.left, currentBoxPos.top);
     var targetX = usable.left + cmToPt(cellX * CELL + OBJ_PAD);
     var targetY = usable.bottom + cmToPt(cellY * CELL + OBJ_PAD);
-    var keepFillForRedStrokeTarget = isRedStrokeOffTarget(
+    var keepFillForRedStrokeTarget = hasRedStrokeTarget(
       obj.item,
       obj.groupType,
     );
 
     if (!moveItemBottomLeftTo(obj.item, targetX, targetY)) return false;
     if (!keepFillAfterPacking) {
-      if (!keepFillForRedStrokeTarget) {
+      if (keepFillForRedStrokeTarget) {
+        try {
+          removeRedStrokeFromPackedItem(obj.item, obj.groupType);
+        } catch (eRemoveStroke) {}
+      } else {
         try {
           removeFillFromPackedItem(obj.item);
         } catch (eRemoveFill) {}
       }
-      try {
-        turnOffRedStrokeForUngrouped3mmItem(obj.item, obj.groupType);
-      } catch (eRemoveStroke) {}
     }
 
     if (!currentBoxHasPlacement) {
