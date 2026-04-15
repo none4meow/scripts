@@ -327,7 +327,8 @@
   }
 
   function grayToHex(gray) {
-    var value = 255 * (Math.max(0, Math.min(100, gray)) / 100);
+    // Imported grayscale artwork from Illustrator exposes darker values with higher gray percentages.
+    var value = 255 * (1 - Math.max(0, Math.min(100, gray)) / 100);
     return rgbToHex(value, value, value);
   }
 
@@ -1715,6 +1716,14 @@
     return best;
   }
 
+  function findNextFittingRegularIndex(regularItems, startIndex, freeRects) {
+    for (var i = startIndex; i < regularItems.length; i++) {
+      var obj = regularItems[i];
+      if (findBestRectPlacement(freeRects, obj.cw, obj.ch)) return i;
+    }
+    return -1;
+  }
+
   function rectContainsRect(a, b) {
     return (
       a.x <= b.x &&
@@ -1758,7 +1767,7 @@
         x: chosenRect.x + placedRect.w,
         y: chosenRect.y,
         w: rightW,
-        h: chosenRect.h,
+        h: placedRect.h,
       });
     }
 
@@ -1767,7 +1776,7 @@
       nextFreeRects.push({
         x: chosenRect.x,
         y: chosenRect.y + placedRect.h,
-        w: placedRect.w,
+        w: chosenRect.w,
         h: topH,
       });
     }
@@ -2298,16 +2307,32 @@
       freeRects = initFreeRects(smallPack.usedHeight);
 
       while (regularIndex < group.regularItems.length) {
-        var obj = group.regularItems[regularIndex];
+        var regularItemIndex = regularIndex;
+        var obj = group.regularItems[regularItemIndex];
         var spot = findBestRectPlacement(freeRects, obj.cw, obj.ch);
-        if (!spot) break;
+        if (!spot) {
+          regularItemIndex = findNextFittingRegularIndex(
+            group.regularItems,
+            regularIndex + 1,
+            freeRects,
+          );
+          if (regularItemIndex < 0) break;
+          obj = group.regularItems[regularItemIndex];
+          spot = findBestRectPlacement(freeRects, obj.cw, obj.ch);
+          if (!spot) break;
+        }
 
         if (placeItemAtCells(obj, spot.x, spot.y)) {
           freeRects = splitFreeRects(freeRects, spot.freeRect, spot.placedRect);
         } else {
           unplaced.push(obj.item);
         }
-        regularIndex++;
+
+        if (regularItemIndex === regularIndex) {
+          regularIndex++;
+        } else {
+          group.regularItems.splice(regularItemIndex, 1);
+        }
       }
 
       clearCurrentBox();
