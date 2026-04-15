@@ -798,17 +798,26 @@
     return normalizeHex(strokeHex);
   }
 
+  function getComparableRedStrokeHex(item) {
+    if (!item) return null;
+
+    if (getItemTypename(item) === "CompoundPathItem") {
+      return normalizeHex(getItemStrokeHex(item));
+    }
+
+    return getDirectComparableStrokeHex(item);
+  }
+
   function clearCompoundPathRedStroke(item, noColor) {
     if (!item) return;
 
-    if (getDirectComparableStrokeHex(item) === RED_STROKE_OFF_HEX) {
-      try {
-        item.stroked = false;
-      } catch (eCompoundStrokedFalse) {}
-      try {
-        if (noColor) item.strokeColor = noColor;
-      } catch (eCompoundNoStrokeColor) {}
-    }
+    // Illustrator may store visible compound stroke on the parent or child paths.
+    try {
+      item.stroked = false;
+    } catch (eCompoundStrokedFalse) {}
+    try {
+      if (noColor) item.strokeColor = noColor;
+    } catch (eCompoundNoStrokeColor) {}
 
     var childPaths = [];
     try {
@@ -819,8 +828,6 @@
 
     for (var childIndex = 0; childIndex < childPaths.length; childIndex++) {
       var child = childPaths[childIndex];
-      if (getDirectComparableStrokeHex(child) !== RED_STROKE_OFF_HEX) continue;
-
       try {
         child.stroked = false;
       } catch (eChildStrokedFalse) {}
@@ -836,7 +843,7 @@
     if (getItemTypename(item.parent) !== "Layer") return false;
     if (!isRedStrokeOffEligibleItem(item)) return false;
 
-    return getDirectComparableStrokeHex(item) === RED_STROKE_OFF_HEX;
+    return getComparableRedStrokeHex(item) === RED_STROKE_OFF_HEX;
   }
 
   function collectGroupPathStrokeStatus(item, status) {
@@ -863,7 +870,7 @@
     if (!isRedStrokeOffEligibleItem(item)) return;
 
     status.hasLeaf = true;
-    if (getDirectComparableStrokeHex(item) !== RED_STROKE_OFF_HEX) {
+    if (getComparableRedStrokeHex(item) !== RED_STROKE_OFF_HEX) {
       status.allRed = false;
     }
   }
@@ -917,7 +924,7 @@
     if (isContainerForRepresentativeLookup(firstChild)) return false;
     if (!isRedStrokeOffEligibleItem(firstChild)) return false;
 
-    return getDirectComparableStrokeHex(firstChild) === RED_STROKE_OFF_HEX;
+    return getComparableRedStrokeHex(firstChild) === RED_STROKE_OFF_HEX;
   }
 
   function hasRedStrokeTarget(item, groupType) {
