@@ -221,7 +221,7 @@
     { label: "Brown", name: "Nau 10 - Brown", hex: "#5A4029" },
     { label: "Do man", name: "Do man - B61", hex: "#A0180A" },
     { label: "Classic Gray", name: "37 - Classic Gray", hex: "#BDBABC" },
-    { label: "Ebony", name: "Ebony", hex: "#535458" },
+    { label: "Ebony", name: "Ebony", hex: "#363638" },
     { label: "Early America", name: "23 - Early America", hex: "#9B6E4F" },
     { label: "Jacobean", name: "19 - Jacobean", hex: "#876E56" },
     { label: "Koson", name: "Ko son", hex: "#E1D6C6" },
@@ -941,8 +941,10 @@
     if (!isContainerForRepresentativeLookup(item)) return false;
 
     var firstChild = getFirstRenderedDirectChildSubtree(item);
-    var useFirstRenderedRedSubgroup =
-      isFirstRenderedSubgroupAllRedStroke(item, groupType);
+    var useFirstRenderedRedSubgroup = isFirstRenderedSubgroupAllRedStroke(
+      item,
+      groupType,
+    );
     var useFirstRenderedRedLeaf = isFirstRenderedDirectChildRedLeaf(
       item,
       groupType,
@@ -1308,12 +1310,19 @@
       });
     }
 
+    // folderEntries.sort(function (a, b) {
+    //   if (a.modifiedTime !== b.modifiedTime)
+    //     return b.modifiedTime - a.modifiedTime;
+    //   return compareText(
+    //     String(a.folder.name).toLowerCase(),
+    //     String(b.folder.name).toLowerCase(),
+    //   );
+    // });
+
     folderEntries.sort(function (a, b) {
-      if (a.modifiedTime !== b.modifiedTime)
-        return b.modifiedTime - a.modifiedTime;
       return compareText(
-        String(a.folder.name).toLowerCase(),
         String(b.folder.name).toLowerCase(),
+        String(a.folder.name).toLowerCase(),
       );
     });
 
