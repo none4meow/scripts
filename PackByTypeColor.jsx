@@ -183,7 +183,7 @@
   var BOX_ROW_GAP = 30;
   var LABEL_OFFSET = 10;
   var LABEL_FONT_NAME = "Fraunces";
-  var LABEL_FONT_SIZE = 220;
+  var LABEL_FONT_SIZE = 160;
   var MAIN_FOLDER_PATH = "E:/DON GO/DON GO 2604";
   var SMALL_BUCKET_MAX_SIDE_CM = 18;
   var COLOR_TOLERANCE = 12;
@@ -225,11 +225,11 @@
     { label: "Early America", name: "23 - Early America", hex: "#9B6E4F" },
     { label: "Jacobean", name: "19 - Jacobean", hex: "#876E56" },
     { label: "Koson", name: "Ko son", hex: "#E1D6C6" },
-    { label: "Vecny", name: "Vecny - Honey Maple", hex: "#EACCA7" },
+    { label: "Vecny", name: "Vecny - Honey Maple", hex: "#DFAB60" },
     { label: "Golden Oak", name: "15 - Golden Oak", hex: "#CE925C" },
     { label: "Candlelite", name: "07 - Candlelite", hex: "#B1592C" },
     { label: "Nau nhat", name: "Nau nhat", hex: "#896F56" },
-    { label: "Mica", name: "Mica", hex: "#e2e2e2" },
+    { label: "Mica", name: "Mica", hex: "#E2E2E2" },
   ];
 
   var USE_CM = BOX - 2 * BOX_PAD; // 88
@@ -837,6 +837,38 @@
     }
   }
 
+  function clearCompoundPathBlueStroke(item, noColor) {
+    if (!item) return;
+
+    if (getDirectComparableStrokeHex(item) === TYPE_5MM_STROKE_HEX) {
+      try {
+        item.stroked = false;
+      } catch (eCompoundBlueStrokedFalse) {}
+      try {
+        if (noColor) item.strokeColor = noColor;
+      } catch (eCompoundBlueNoStrokeColor) {}
+    }
+
+    var childPaths = [];
+    try {
+      for (var i = 0; i < item.pathItems.length; i++) {
+        childPaths.push(item.pathItems[i]);
+      }
+    } catch (eCompoundBlueStrokeChildren) {}
+
+    for (var childIndex = 0; childIndex < childPaths.length; childIndex++) {
+      var child = childPaths[childIndex];
+      if (getDirectComparableStrokeHex(child) !== TYPE_5MM_STROKE_HEX) continue;
+
+      try {
+        child.stroked = false;
+      } catch (eChildBlueStrokedFalse) {}
+      try {
+        if (noColor) child.strokeColor = noColor;
+      } catch (eChildBlueNoStrokeColor) {}
+    }
+  }
+
   function isStandaloneRedStrokeTarget(item, groupType) {
     if (!item) return false;
     if (groupType !== TYPE_3MM) return false;
@@ -1011,6 +1043,48 @@
     try {
       if (noColor) item.strokeColor = noColor;
     } catch (eNoStrokeColor) {}
+  }
+
+  function removeBlueStrokeFromPackedItem(item, groupType) {
+    if (!item) return;
+    if (groupType !== TYPE_5MM) return;
+
+    try {
+      if (item.hidden || item.locked) return;
+    } catch (eState) {}
+
+    if (isContainerForRepresentativeLookup(item)) {
+      var children = [];
+      try {
+        for (var i = 0; i < item.pageItems.length; i++) {
+          children.push(item.pageItems[i]);
+        }
+      } catch (eChildren) {}
+
+      for (var childIndex = 0; childIndex < children.length; childIndex++) {
+        removeBlueStrokeFromPackedItem(children[childIndex], groupType);
+      }
+      return;
+    }
+
+    var typename = getItemTypename(item);
+    if (!isRedStrokeOffEligibleItem(item)) return;
+
+    var noColor = makeNoColor();
+
+    if (typename === "CompoundPathItem") {
+      clearCompoundPathBlueStroke(item, noColor);
+      return;
+    }
+
+    if (getDirectComparableStrokeHex(item) !== TYPE_5MM_STROKE_HEX) return;
+
+    try {
+      item.stroked = false;
+    } catch (eBlueStrokedFalse) {}
+    try {
+      if (noColor) item.strokeColor = noColor;
+    } catch (eBlueNoStrokeColor) {}
   }
 
   function turnOffFillIfFilledAndStroked(item) {
@@ -1854,6 +1928,7 @@
       var boxStrokeColor = makeRgbColorFromHex("#000000");
       if (boxStrokeColor) rect.strokeColor = boxStrokeColor;
     } catch (eBoxStroke) {}
+    rect.strokeWidth = 1;
     rect.filled = false;
     return rect;
   }
@@ -2266,7 +2341,11 @@
     );
 
     if (!moveItemBottomLeftTo(obj.item, targetX, targetY)) return false;
-    if (!keepFillAfterPacking) {
+    if (keepFillAfterPacking) {
+      try {
+        removeBlueStrokeFromPackedItem(obj.item, obj.groupType);
+      } catch (eRemoveBlueStroke) {}
+    } else {
       if (keepFillForWholeItemRedStrokeTarget) {
         try {
           removeRedStrokeFromPackedItem(obj.item, obj.groupType);
