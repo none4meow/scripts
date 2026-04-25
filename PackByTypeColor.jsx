@@ -23,7 +23,7 @@
  *  - Small items are packed into bottom rows first; larger items are then packed above them
  *
  * Notes:
- *  - Bounds for sizing AND moving: clipped groups use the clipping mask path geometricBounds; other items use union(visibleBounds, geometricBounds)
+ *  - Bounds for sizing AND moving: clipped groups use the clipping mask path geometricBounds; other groups union visible drawable children
  */
 
 (function () {
@@ -1270,11 +1270,12 @@
   }
 
   function compareSmallBucketItems(a, b) {
+    if (a.heightCells !== b.heightCells) return b.heightCells - a.heightCells;
+    if (a.area !== b.area) return b.area - a.area;
+
     var cellCompare = compareByCellSize(a, b);
     if (cellCompare !== 0) return cellCompare;
 
-    if (a.heightCells !== b.heightCells) return a.heightCells - b.heightCells;
-    if (a.area !== b.area) return a.area - b.area;
     return a.collectIndex - b.collectIndex;
   }
 
@@ -1719,6 +1720,8 @@
     var maskBounds = getClippingMaskBounds(item);
     if (maskBounds) return maskBounds;
 
+    if (isDrawableLeaf(item) && !hasUsableLeafAppearance(item)) return null;
+
     var children = null;
     try {
       children = item.pageItems;
@@ -1734,7 +1737,10 @@
           if (child.hidden || child.locked) continue;
         } catch (eChildState) {}
 
-        mergedBounds = unionBoundsArrays(mergedBounds, getPackingBounds(child));
+        var childBounds = getPackingBounds(child);
+        if (childBounds) {
+          mergedBounds = unionBoundsArrays(mergedBounds, childBounds);
+        }
       }
 
       if (mergedBounds) return mergedBounds;
@@ -1765,6 +1771,14 @@
   }
 
   function comparePlacementScores(a, b) {
+    if (a.y !== b.y) {
+      return a.y - b.y;
+    }
+
+    if (a.x !== b.x) {
+      return a.x - b.x;
+    }
+
     if (a.leftoverShort !== b.leftoverShort) {
       return a.leftoverShort - b.leftoverShort;
     }
@@ -1772,12 +1786,7 @@
     if (a.leftoverLong !== b.leftoverLong) {
       return a.leftoverLong - b.leftoverLong;
     }
-
-    if (a.y !== b.y) {
-      return a.y - b.y;
-    }
-
-    return a.x - b.x;
+    return 0;
   }
 
   function findBestRectPlacement(freeRects, cw, ch) {
@@ -1823,6 +1832,15 @@
     );
   }
 
+  function rectsOverlap(a, b) {
+    return (
+      a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.y + a.h > b.y
+    );
+  }
+
   function pruneContainedFreeRects(freeRects) {
     var pruned = [];
 
@@ -1844,6 +1862,168 @@
     return pruned;
   }
 
+  function addUniqueNumber(list, value) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i] === value) return;
+    }
+    list.push(value);
+  }
+
+  function compareNumbers(a, b) {
+    return a - b;
+  }
+
+  function rectCoversCell(rect, x, y, w, h) {
+    return (
+      rect.x <= x &&
+      rect.y <= y &&
+      rect.x + rect.w >= x + w &&
+      rect.y + rect.h >= y + h
+    );
+  }
+
+  function mergeAdjacentFreeRects(freeRects) {
+    var merged = freeRects.slice(0);
+    var changed = true;
+
+    while (changed) {
+      changed = false;
+
+      for (var i = 0; i < merged.length && !changed; i++) {
+        for (var j = i + 1; j < merged.length; j++) {
+          var a = merged[i];
+          var b = merged[j];
+          var canMergeHorizontal =
+            a.y === b.y &&
+            a.h === b.h &&
+            (a.x + a.w === b.x || b.x + b.w === a.x);
+          var canMergeVertical =
+            a.x === b.x &&
+            a.w === b.w &&
+            (a.y + a.h === b.y || b.y + b.h === a.y);
+
+          if (!canMergeHorizontal && !canMergeVertical) continue;
+
+          var mergedRect = {
+            x: Math.min(a.x, b.x),
+            y: Math.min(a.y, b.y),
+            w: canMergeHorizontal ? a.w + b.w : a.w,
+            h: canMergeVertical ? a.h + b.h : a.h,
+          };
+
+          merged.splice(j, 1);
+          merged.splice(i, 1, mergedRect);
+          changed = true;
+          break;
+        }
+      }
+    }
+
+    return pruneContainedFreeRects(merged);
+  }
+
+  function normalizeFreeRects(freeRects) {
+    var xEdges = [];
+    var yEdges = [];
+    var cells = [];
+    var used = {};
+
+    for (var i = 0; i < freeRects.length; i++) {
+      var rect = freeRects[i];
+      if (rect.w <= 0 || rect.h <= 0) continue;
+      addUniqueNumber(xEdges, rect.x);
+      addUniqueNumber(xEdges, rect.x + rect.w);
+      addUniqueNumber(yEdges, rect.y);
+      addUniqueNumber(yEdges, rect.y + rect.h);
+    }
+
+    xEdges.sort(compareNumbers);
+    yEdges.sort(compareNumbers);
+
+    for (var xi = 0; xi < xEdges.length - 1; xi++) {
+      for (var yi = 0; yi < yEdges.length - 1; yi++) {
+        var x = xEdges[xi];
+        var y = yEdges[yi];
+        var w = xEdges[xi + 1] - x;
+        var h = yEdges[yi + 1] - y;
+        if (w <= 0 || h <= 0) continue;
+
+        for (var rectIndex = 0; rectIndex < freeRects.length; rectIndex++) {
+          if (!rectCoversCell(freeRects[rectIndex], x, y, w, h)) continue;
+
+          var key = x + ":" + y + ":" + w + ":" + h;
+          if (!used[key]) {
+            cells.push({ x: x, y: y, w: w, h: h });
+            used[key] = true;
+          }
+          break;
+        }
+      }
+    }
+
+    return mergeAdjacentFreeRects(cells);
+  }
+
+  function subtractOccupiedRectFromFreeRects(freeRects, occupiedRect) {
+    var nextFreeRects = [];
+
+    for (var i = 0; i < freeRects.length; i++) {
+      var freeRect = freeRects[i];
+
+      if (!rectsOverlap(freeRect, occupiedRect)) {
+        nextFreeRects.push(freeRect);
+        continue;
+      }
+
+      var freeRight = freeRect.x + freeRect.w;
+      var freeTop = freeRect.y + freeRect.h;
+      var occupiedRight = occupiedRect.x + occupiedRect.w;
+      var occupiedTop = occupiedRect.y + occupiedRect.h;
+      var ix1 = Math.max(freeRect.x, occupiedRect.x);
+      var iy1 = Math.max(freeRect.y, occupiedRect.y);
+      var ix2 = Math.min(freeRight, occupiedRight);
+      var iy2 = Math.min(freeTop, occupiedTop);
+
+      if (ix1 > freeRect.x) {
+        nextFreeRects.push({
+          x: freeRect.x,
+          y: freeRect.y,
+          w: ix1 - freeRect.x,
+          h: freeRect.h,
+        });
+      }
+
+      if (ix2 < freeRight) {
+        nextFreeRects.push({
+          x: ix2,
+          y: freeRect.y,
+          w: freeRight - ix2,
+          h: freeRect.h,
+        });
+      }
+
+      if (iy1 > freeRect.y) {
+        nextFreeRects.push({
+          x: ix1,
+          y: freeRect.y,
+          w: ix2 - ix1,
+          h: iy1 - freeRect.y,
+        });
+      }
+
+      if (iy2 < freeTop) {
+        nextFreeRects.push({
+          x: ix1,
+          y: iy2,
+          w: ix2 - ix1,
+          h: freeTop - iy2,
+        });
+      }
+    }
+
+    return normalizeFreeRects(pruneContainedFreeRects(nextFreeRects));
+  }
+
   function splitFreeRects(freeRects, chosenRect, placedRect) {
     var nextFreeRects = [];
 
@@ -1852,64 +2032,130 @@
     }
 
     var rightW = chosenRect.w - placedRect.w;
-    if (rightW > 0) {
-      nextFreeRects.push({
-        x: chosenRect.x + placedRect.w,
-        y: chosenRect.y,
-        w: rightW,
-        h: placedRect.h,
-      });
-    }
-
     var topH = chosenRect.h - placedRect.h;
-    if (topH > 0) {
-      nextFreeRects.push({
-        x: chosenRect.x,
-        y: chosenRect.y + placedRect.h,
-        w: chosenRect.w,
-        h: topH,
-      });
+
+    if (rightW > topH) {
+      if (rightW > 0) {
+        nextFreeRects.push({
+          x: chosenRect.x + placedRect.w,
+          y: chosenRect.y,
+          w: rightW,
+          h: chosenRect.h,
+        });
+      }
+
+      if (topH > 0) {
+        nextFreeRects.push({
+          x: chosenRect.x,
+          y: chosenRect.y + placedRect.h,
+          w: placedRect.w,
+          h: topH,
+        });
+      }
+    } else {
+      if (rightW > 0) {
+        nextFreeRects.push({
+          x: chosenRect.x + placedRect.w,
+          y: chosenRect.y,
+          w: rightW,
+          h: placedRect.h,
+        });
+      }
+
+      if (topH > 0) {
+        nextFreeRects.push({
+          x: chosenRect.x,
+          y: chosenRect.y + placedRect.h,
+          w: chosenRect.w,
+          h: topH,
+        });
+      }
     }
 
-    return pruneContainedFreeRects(nextFreeRects);
+    return normalizeFreeRects(pruneContainedFreeRects(nextFreeRects));
   }
 
-  function packSmallItemsInRows(smallItems, startIndex) {
+  function compareSmallRowRects(a, b) {
+    if (a.y !== b.y) return a.y - b.y;
+    if (a.x !== b.x) return a.x - b.x;
+    if (a.w !== b.w) return b.w - a.w;
+    if (a.h !== b.h) return b.h - a.h;
+    return 0;
+  }
+
+  function findBestSmallRowRect(freeRects, cw, ch) {
+    var best = null;
+
+    for (var i = 0; i < freeRects.length; i++) {
+      var rect = freeRects[i];
+      if (cw > rect.w || ch > rect.h) continue;
+
+      if (!best || compareSmallRowRects(rect, best) < 0) {
+        best = rect;
+      }
+    }
+
+    return best;
+  }
+
+  function packSmallItemsInRows(smallItems, startIndex, availableFreeRects) {
     var placements = [];
-    var rowX = 0;
-    var rowY = 0;
-    var rowHeight = 0;
+    var simulatedFreeRects = availableFreeRects.slice(0);
     var index = startIndex;
 
     while (index < smallItems.length) {
-      var obj = smallItems[index];
+      var firstItem = smallItems[index];
+      var rowRect = findBestSmallRowRect(
+        simulatedFreeRects,
+        firstItem.cw,
+        firstItem.ch,
+      );
+      if (!rowRect) break;
 
-      if (rowHeight === 0) {
-        if (rowY + obj.ch > GH) break;
-        placements.push({ item: obj, x: rowX, y: rowY });
-        rowX += obj.cw;
-        rowHeight = obj.ch;
+      var rowPlacements = [];
+      var rowWidth = 0;
+      var rowHeight = 0;
+
+      while (index < smallItems.length) {
+        var obj = smallItems[index];
+        var nextWidth = rowWidth + obj.cw;
+        var nextHeight = rowHeight;
+        if (obj.ch > nextHeight) nextHeight = obj.ch;
+
+        if (nextWidth > rowRect.w) break;
+        if (nextHeight > rowRect.h) break;
+
+        rowPlacements.push({
+          item: obj,
+          x: rowRect.x + rowWidth,
+          y: rowRect.y,
+        });
+        rowWidth = nextWidth;
+        rowHeight = nextHeight;
         index++;
-        continue;
       }
 
-      if (rowX + obj.cw <= GW) {
-        placements.push({ item: obj, x: rowX, y: rowY });
-        rowX += obj.cw;
-        if (obj.ch > rowHeight) rowHeight = obj.ch;
-        index++;
-        continue;
-      }
+      if (rowPlacements.length === 0) break;
 
-      rowY += rowHeight;
-      rowX = 0;
-      rowHeight = 0;
+      for (var rowIndex = 0; rowIndex < rowPlacements.length; rowIndex++) {
+        var placement = rowPlacements[rowIndex];
+        placements.push(placement);
+        simulatedFreeRects = subtractOccupiedRectFromFreeRects(
+          simulatedFreeRects,
+          {
+            x: placement.x,
+            y: placement.y,
+            w: placement.item.cw,
+            h: placement.item.ch,
+          },
+        );
+      }
     }
 
     return {
       placements: placements,
       nextIndex: index,
-      usedHeight: rowHeight > 0 ? rowY + rowHeight : rowY,
+      freeRects: simulatedFreeRects,
     };
   }
 
@@ -2143,6 +2389,7 @@
     if (!hasUsablePackAppearance(it)) continue;
 
     var pb = getPackingBounds(it);
+    if (!pb) continue;
     var wCm = ptToCm(boundsWidthPt(pb));
     var hCm = ptToCm(boundsHeightPt(pb));
 
@@ -2379,27 +2626,7 @@
       regularIndex < group.regularItems.length
     ) {
       startNewBox(group.labelText, group.labelColorHex);
-
-      var smallPack = packSmallItemsInRows(group.smallItems, smallIndex);
-      for (
-        var smallPlacementIndex = 0;
-        smallPlacementIndex < smallPack.placements.length;
-        smallPlacementIndex++
-      ) {
-        var smallPlacement = smallPack.placements[smallPlacementIndex];
-        if (
-          !placeItemAtCells(
-            smallPlacement.item,
-            smallPlacement.x,
-            smallPlacement.y,
-          )
-        ) {
-          unplaced.push(smallPlacement.item.item);
-        }
-      }
-      smallIndex = smallPack.nextIndex;
-
-      freeRects = initFreeRects(smallPack.usedHeight);
+      freeRects = initFreeRects(0);
 
       while (regularIndex < group.regularItems.length) {
         var regularItemIndex = regularIndex;
@@ -2429,6 +2656,36 @@
           group.regularItems.splice(regularItemIndex, 1);
         }
       }
+
+      var smallPack = packSmallItemsInRows(
+        group.smallItems,
+        smallIndex,
+        freeRects,
+      );
+      for (
+        var smallPlacementIndex = 0;
+        smallPlacementIndex < smallPack.placements.length;
+        smallPlacementIndex++
+      ) {
+        var smallPlacement = smallPack.placements[smallPlacementIndex];
+        if (
+          !placeItemAtCells(
+            smallPlacement.item,
+            smallPlacement.x,
+            smallPlacement.y,
+          )
+        ) {
+          unplaced.push(smallPlacement.item.item);
+        } else {
+          freeRects = subtractOccupiedRectFromFreeRects(freeRects, {
+            x: smallPlacement.x,
+            y: smallPlacement.y,
+            w: smallPlacement.item.cw,
+            h: smallPlacement.item.ch,
+          });
+        }
+      }
+      smallIndex = smallPack.nextIndex;
 
       clearCurrentBox();
     }
